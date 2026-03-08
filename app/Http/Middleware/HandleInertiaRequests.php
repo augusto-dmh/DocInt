@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,13 +37,50 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $tenant = $this->resolveSharedTenant($request);
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
             ],
+            'tenant' => $tenant?->only('id', 'name', 'slug', 'logo_url'),
+            'tenantContext' => [
+                'canSelect' => false,
+                'activeTenantId' => $tenant?->id,
+                'activeTenant' => $tenant?->only('id', 'name', 'slug'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    protected function resolveSharedTenant(Request $request): ?Tenant
+    {
+        if (tenant() instanceof Tenant) {
+            return tenant();
+        }
+
+        $user = $request->user();
+
+        if ($user instanceof User && is_string($user->tenant_id) && $user->tenant_id !== '') {
+            return Tenant::query()->find($user->tenant_id);
+        }
+
+        if (! $user instanceof User || ! method_exists($user, 'hasSuperAdminRole') || ! $user->hasSuperAdminRole()) {
+            return null;
+        }
+
+        $sessionKey = config('tenancy.tenant_context.session_key');
+        $resolvedSessionKey = is_string($sessionKey) && $sessionKey !== ''
+            ? $sessionKey
+            : 'active_tenant_id';
+        $tenantId = $request->session()->get($resolvedSessionKey);
+
+        if (! is_string($tenantId) || $tenantId === '') {
+            return null;
+        }
+
+        return Tenant::query()->find($tenantId);
     }
 }
