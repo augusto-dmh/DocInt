@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DocumentStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,7 +17,6 @@ class Document extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'matter_id',
         'uploaded_by',
         'title',
@@ -33,7 +33,7 @@ class Document extends Model
     protected function casts(): array
     {
         return [
-            'file_size' => 'integer',
+            'status' => DocumentStatus::class,
         ];
     }
 

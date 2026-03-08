@@ -16,7 +16,6 @@ class Client extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'name',
         'email',
         'phone',

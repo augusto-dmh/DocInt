@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MatterStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,13 +18,22 @@ class Matter extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'tenant_id',
         'client_id',
         'title',
         'description',
         'reference_number',
         'status',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'status' => MatterStatus::class,
+        ];
+    }
 
     public function client(): BelongsTo
     {
