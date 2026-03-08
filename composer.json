@@ -15,6 +15,7 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "laravel/wayfinder": "^0.1.9",
+        "spatie/laravel-permission": "^7.1",
         "stancl/tenancy": "^3.9"
     },
     "require-dev": {
