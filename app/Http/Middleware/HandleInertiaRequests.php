@@ -38,18 +38,20 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $tenant = $this->resolveSharedTenant($request);
+        $user = $request->user();
+        $isSuperAdmin = $user instanceof User && $user->hasSuperAdminRole();
 
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => fn () => $user,
+                'roles' => fn () => $this->sharedRoles($user, $tenant),
+                'permissions' => fn () => $this->sharedPermissions($user, $tenant),
+                'isSuperAdmin' => fn () => $isSuperAdmin,
             ],
             'tenant' => $tenant?->only('id', 'name', 'slug', 'logo_url'),
-            'tenantContext' => [
-                'canSelect' => false,
-                'activeTenantId' => $tenant?->id,
-            ],
+            'tenantContext' => fn () => $this->sharedTenantContext($request, $tenant, $isSuperAdmin),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
@@ -63,9 +65,81 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
 
         if ($user instanceof User && is_string($user->tenant_id) && $user->tenant_id !== '') {
-            return $user->tenant;
+            return Tenant::query()->find($user->tenant_id);
         }
 
-        return null;
+        if (! $user instanceof User || ! method_exists($user, 'hasSuperAdminRole') || ! $user->hasSuperAdminRole()) {
+            return null;
+        }
+
+        $sessionKey = config('tenancy.tenant_context.session_key');
+        $resolvedSessionKey = is_string($sessionKey) && $sessionKey !== ''
+            ? $sessionKey
+            : 'active_tenant_id';
+        $tenantId = $request->session()->get($resolvedSessionKey);
+
+        if (! is_string($tenantId) || $tenantId === '') {
+            return null;
+        }
+
+        return Tenant::query()->find($tenantId);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function sharedRoles(?User $user, ?Tenant $tenant): array
+    {
+        if (! $user instanceof User) {
+            return [];
+        }
+
+        return $this->withPermissionTeamContext($tenant?->id, fn (): array => $user->getRoleNames()->values()->all());
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function sharedPermissions(?User $user, ?Tenant $tenant): array
+    {
+        if (! $user instanceof User) {
+            return [];
+        }
+
+        return $this->withPermissionTeamContext($tenant?->id, fn (): array => $user->getAllPermissions()->pluck('name')->values()->all());
+    }
+
+    /**
+     * @return array{canSelect: bool, activeTenantId: string|null, activeTenant: array{id: string, name: string, slug: string}|null}
+     */
+    protected function sharedTenantContext(Request $request, ?Tenant $tenant, bool $isSuperAdmin): array
+    {
+        return [
+            'canSelect' => $isSuperAdmin,
+            'activeTenantId' => $tenant?->id,
+            'activeTenant' => $tenant?->only('id', 'name', 'slug'),
+        ];
+    }
+
+    /**
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    protected function withPermissionTeamContext(?string $tenantId, callable $callback): mixed
+    {
+        if (! function_exists('getPermissionsTeamId') || ! function_exists('setPermissionsTeamId')) {
+            return $callback();
+        }
+
+        $originalTeamId = getPermissionsTeamId();
+        setPermissionsTeamId($tenantId);
+
+        try {
+            return $callback();
+        } finally {
+            setPermissionsTeamId($originalTeamId);
+        }
     }
 }

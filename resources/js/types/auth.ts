@@ -20,10 +20,14 @@ export type Tenant = {
 export type TenantContext = {
     canSelect: boolean;
     activeTenantId: string | null;
+    activeTenant: Pick<Tenant, 'id' | 'name' | 'slug'> | null;
 };
 
 export type Auth = {
     user: User;
+    roles: string[];
+    permissions: string[];
+    isSuperAdmin: boolean;
 };
 
 export type TwoFactorConfigContent = {
