@@ -18,9 +18,6 @@ test('shared inertia data exposes tenant and tenant context for tenant users', f
             ->where('tenant.logo_url', $tenant->logo_url)
             ->where('tenantContext.canSelect', false)
             ->where('tenantContext.activeTenantId', $tenant->id)
-            ->where('tenantContext.activeTenant.id', $tenant->id)
-            ->where('tenantContext.activeTenant.name', $tenant->name)
-            ->where('tenantContext.activeTenant.slug', $tenant->slug)
         );
 });
 

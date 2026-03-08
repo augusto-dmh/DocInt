@@ -18,12 +18,10 @@ class TenantFactory extends Factory
     public function definition(): array
     {
         $name = fake()->company();
-        $slug = Str::slug($name).'-'.fake()->unique()->numberBetween(1, 9999);
 
         return [
-            'id' => $slug,
             'name' => $name,
-            'slug' => $slug,
+            'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(1, 9999),
             'logo_url' => null,
         ];
     }

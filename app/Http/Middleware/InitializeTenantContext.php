@@ -5,10 +5,8 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use App\Models\User;
 use Closure;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Stancl\Tenancy\Contracts\Tenant as TenantContract;
 use Stancl\Tenancy\Exceptions\TenantCouldNotBeIdentifiedOnDomainException;
@@ -55,10 +53,6 @@ class InitializeTenantContext
 
     protected function resolveTenantFromDomain(Request $request): ?Tenant
     {
-        if (! $this->canResolveByDomain()) {
-            return null;
-        }
-
         foreach ($this->domainCandidates($request->getHost()) as $domainCandidate) {
             try {
                 $tenant = $this->domainTenantResolver->resolve($domainCandidate);
@@ -172,21 +166,6 @@ class InitializeTenantContext
         }
 
         return array_values(array_unique($candidates));
-    }
-
-    protected function canResolveByDomain(): bool
-    {
-        $domainModelClass = config('tenancy.domain_model');
-
-        if (! is_string($domainModelClass) || ! is_subclass_of($domainModelClass, Model::class)) {
-            return false;
-        }
-
-        try {
-            return Schema::hasTable((new $domainModelClass)->getTable());
-        } catch (QueryException) {
-            return false;
-        }
     }
 
     protected function headerName(): string

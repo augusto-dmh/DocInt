@@ -49,7 +49,6 @@ class HandleInertiaRequests extends Middleware
             'tenantContext' => [
                 'canSelect' => false,
                 'activeTenantId' => $tenant?->id,
-                'activeTenant' => $tenant?->only('id', 'name', 'slug'),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
@@ -64,23 +63,9 @@ class HandleInertiaRequests extends Middleware
         $user = $request->user();
 
         if ($user instanceof User && is_string($user->tenant_id) && $user->tenant_id !== '') {
-            return Tenant::query()->find($user->tenant_id);
+            return $user->tenant;
         }
 
-        if (! $user instanceof User || ! method_exists($user, 'hasSuperAdminRole') || ! $user->hasSuperAdminRole()) {
-            return null;
-        }
-
-        $sessionKey = config('tenancy.tenant_context.session_key');
-        $resolvedSessionKey = is_string($sessionKey) && $sessionKey !== ''
-            ? $sessionKey
-            : 'active_tenant_id';
-        $tenantId = $request->session()->get($resolvedSessionKey);
-
-        if (! is_string($tenantId) || $tenantId === '') {
-            return null;
-        }
-
-        return Tenant::query()->find($tenantId);
+        return null;
     }
 }

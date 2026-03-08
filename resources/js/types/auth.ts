@@ -20,7 +20,6 @@ export type Tenant = {
 export type TenantContext = {
     canSelect: boolean;
     activeTenantId: string | null;
-    activeTenant: Pick<Tenant, 'id' | 'name' | 'slug'> | null;
 };
 
 export type Auth = {
