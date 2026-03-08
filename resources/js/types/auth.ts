@@ -1,5 +1,6 @@
 export type User = {
     id: number;
+    tenant_id: string | null;
     name: string;
     email: string;
     avatar?: string;
@@ -7,6 +8,18 @@ export type User = {
     created_at: string;
     updated_at: string;
     [key: string]: unknown;
+};
+
+export type Tenant = {
+    id: string;
+    name: string;
+    slug: string;
+    logo_url: string | null;
+};
+
+export type TenantContext = {
+    canSelect: boolean;
+    activeTenantId: string | null;
 };
 
 export type Auth = {
