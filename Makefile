@@ -32,7 +32,7 @@ fresh:
 	$(DOCKER_COMPOSE) exec $(APP_SERVICE) php artisan migrate:fresh --seed --force
 
 test:
-	$(DOCKER_COMPOSE) exec -e DB_CONNECTION=sqlite -e DB_DATABASE=:memory: $(APP_SERVICE) php artisan test --compact
+	$(DOCKER_COMPOSE) exec $(APP_SERVICE) php artisan test --compact
 
 npm:
 	$(DOCKER_COMPOSE) exec $(NODE_SERVICE) npm $(filter-out $@,$(MAKECMDGOALS))
