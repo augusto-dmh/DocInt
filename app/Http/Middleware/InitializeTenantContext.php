@@ -39,6 +39,7 @@ class InitializeTenantContext
         }
 
         tenancy()->initialize($tenant);
+        setPermissionsTeamId($tenant->getTenantKey());
 
         return $next($request);
     }
@@ -219,6 +220,8 @@ class InitializeTenantContext
 
     protected function denyAccess(): never
     {
+        setPermissionsTeamId(null);
+
         abort(Response::HTTP_FORBIDDEN, 'Tenant context is required for this request.');
     }
 }
