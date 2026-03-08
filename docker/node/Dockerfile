@@ -28,5 +28,3 @@ RUN apk add --no-cache \
 WORKDIR /var/www/html
 
 EXPOSE 5173
-
-CMD ["sh", "-lc", "if [ ! -d node_modules ] || [ ! -x node_modules/.bin/vite ]; then npm install; fi && npm run dev -- --host 0.0.0.0 --port 5173"]
