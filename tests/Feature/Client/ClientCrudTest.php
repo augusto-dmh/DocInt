@@ -14,6 +14,7 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
+    setPermissionsTeamId(null);
     tenancy()->end();
 });
 

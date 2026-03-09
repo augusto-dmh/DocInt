@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Matter, PaginatedData } from '@/types';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 defineProps<{
     matters: PaginatedData<Matter>;
@@ -15,6 +16,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
         href: MatterController.index.url(),
     },
 ];
+
+const page = usePage();
+const canCreateMatter = computed(() =>
+    page.props.auth.permissions.includes('create matters'),
+);
+const canEditMatter = computed(() =>
+    page.props.auth.permissions.includes('edit matters'),
+);
 
 function matterStatusClass(status: Matter['status']): string {
     if (status === 'open') {
@@ -47,7 +56,7 @@ function matterStatusClass(status: Matter['status']): string {
                     </p>
                 </div>
 
-                <Button as-child>
+                <Button v-if="canCreateMatter" as-child>
                     <Link :href="MatterController.create()">New Matter</Link>
                 </Button>
             </div>
@@ -133,6 +142,7 @@ function matterStatusClass(status: Matter['status']): string {
                                             Open
                                         </Link>
                                         <Link
+                                            v-if="canEditMatter"
                                             :href="
                                                 MatterController.edit(matter)
                                             "

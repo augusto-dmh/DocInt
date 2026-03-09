@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Form, Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +18,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client } from '@/types';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
 
 const isDeleteDialogOpen = ref(false);
 
@@ -38,6 +38,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: 'Edit',
     },
 ];
+
+const page = usePage();
+const canDeleteClient = computed(() =>
+    page.props.auth.permissions.includes('delete clients'),
+);
 </script>
 
 <template>
@@ -140,7 +145,10 @@ const breadcrumbItems: BreadcrumbItem[] = [
                 </Form>
             </div>
 
-            <div class="rounded-xl border border-destructive/30 p-6">
+            <div
+                v-if="canDeleteClient"
+                class="rounded-xl border border-destructive/30 p-6"
+            >
                 <h2 class="text-lg font-semibold text-destructive">
                     Delete Client
                 </h2>

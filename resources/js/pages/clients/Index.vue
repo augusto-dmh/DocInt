@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client, PaginatedData } from '@/types';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
 
 defineProps<{
     clients: PaginatedData<Client>;
@@ -15,6 +16,14 @@ const breadcrumbItems: BreadcrumbItem[] = [
         href: ClientController.index.url(),
     },
 ];
+
+const page = usePage();
+const canCreateClient = computed(() =>
+    page.props.auth.permissions.includes('create clients'),
+);
+const canEditClient = computed(() =>
+    page.props.auth.permissions.includes('edit clients'),
+);
 </script>
 
 <template>
@@ -35,7 +44,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     </p>
                 </div>
 
-                <Button as-child>
+                <Button v-if="canCreateClient" as-child>
                     <Link :href="ClientController.create()">New Client</Link>
                 </Button>
             </div>
@@ -108,6 +117,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                                             Open
                                         </Link>
                                         <Link
+                                            v-if="canEditClient"
                                             :href="
                                                 ClientController.edit(client)
                                             "
