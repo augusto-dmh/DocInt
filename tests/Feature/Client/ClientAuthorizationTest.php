@@ -162,12 +162,30 @@ describe('client role', function (): void {
             ->assertSuccessful();
     });
 
+    test('cannot access create page', function (): void {
+        [$tenant, $user] = createClientAuthContext('client');
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->get(route('clients.create'))
+            ->assertForbidden();
+    });
+
     test('cannot create a client', function (): void {
         [$tenant, $user] = createClientAuthContext('client');
 
         $this->actingAs($user)
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
             ->post(route('clients.store'), ['name' => 'New Client'])
+            ->assertForbidden();
+    });
+
+    test('cannot access edit page', function (): void {
+        [$tenant, $user, $client] = createClientAuthContext('client');
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->get(route('clients.edit', $client))
             ->assertForbidden();
     });
 

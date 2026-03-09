@@ -191,6 +191,15 @@ describe('client role', function (): void {
             ->assertSuccessful();
     });
 
+    test('cannot access create page', function (): void {
+        [$tenant, $user] = createMatterAuthContext('client');
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->get(route('matters.create'))
+            ->assertForbidden();
+    });
+
     test('cannot create a matter', function (): void {
         [$tenant, $user, $client] = createMatterAuthContext('client');
 
@@ -201,6 +210,15 @@ describe('client role', function (): void {
                 'title' => 'New Matter',
                 'status' => 'open',
             ])
+            ->assertForbidden();
+    });
+
+    test('cannot access edit page', function (): void {
+        [$tenant, $user, , $matter] = createMatterAuthContext('client');
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->get(route('matters.edit', $matter))
             ->assertForbidden();
     });
 
