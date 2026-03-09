@@ -8,6 +8,8 @@ export type Client = {
     notes: string | null;
     created_at: string;
     updated_at: string;
+    matters_count?: number;
+    matters?: Matter[];
 };
 
 export type MatterStatus = 'open' | 'closed' | 'on_hold';
@@ -22,7 +24,9 @@ export type Matter = {
     status: MatterStatus;
     created_at: string;
     updated_at: string;
+    documents_count?: number;
     client?: Client;
+    documents?: Document[];
 };
 
 export type DocumentStatus = 'uploaded' | 'ready_for_review' | 'approved';
