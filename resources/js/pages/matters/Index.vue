@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Matter, PaginatedData } from '@/types';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 defineProps<{
     matters: PaginatedData<Matter>;

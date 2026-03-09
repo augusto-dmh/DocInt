@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client, Matter } from '@/types';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
-defineProps<{
+const props = defineProps<{
     client: Client & { matters: Matter[] };
 }>();
 
@@ -14,6 +14,9 @@ const breadcrumbItems: BreadcrumbItem[] = [
     {
         title: 'Clients',
         href: ClientController.index.url(),
+    },
+    {
+        title: props.client.name,
     },
 ];
 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client, Document, Matter } from '@/types';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 const props = defineProps<{
     matter: Matter & { client: Client; documents: Document[] };

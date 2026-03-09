@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client, PaginatedData } from '@/types';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
 
 defineProps<{
     clients: PaginatedData<Client>;
