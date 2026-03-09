@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
+import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Matter } from '@/types';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
-const textareaClass =
-    'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-28 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50';
+const isDeleteDialogOpen = ref(false);
 
 const selectClass =
     'border-input bg-background ring-offset-background focus-visible:ring-ring flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50';
@@ -123,12 +133,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                     <div class="grid gap-2">
                         <Label for="description">Description</Label>
-                        <textarea
+                        <Textarea
                             id="description"
                             name="description"
                             rows="4"
-                            :class="textareaClass"
-                            :value="matter.description ?? ''"
+                            :default-value="matter.description ?? ''"
                             placeholder="Matter summary and context"
                         />
                         <InputError :message="errors.description" />
@@ -159,15 +168,41 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     This permanently removes the matter from the active tenant.
                 </p>
 
-                <Form
-                    v-bind="MatterController.destroy.form(matter)"
-                    v-slot="{ processing }"
-                    class="mt-4"
-                >
-                    <Button variant="destructive" :disabled="processing"
-                        >Delete Matter</Button
-                    >
-                </Form>
+                <Dialog v-model:open="isDeleteDialogOpen">
+                    <DialogTrigger as-child>
+                        <Button variant="destructive" class="mt-4"
+                            >Delete Matter</Button
+                        >
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle
+                                >Delete {{ matter.title }}?</DialogTitle
+                            >
+                            <DialogDescription>
+                                This action cannot be undone. The matter and all
+                                associated data will be permanently removed.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                @click="isDeleteDialogOpen = false"
+                                >Cancel</Button
+                            >
+                            <Form
+                                v-bind="MatterController.destroy.form(matter)"
+                                v-slot="{ processing }"
+                            >
+                                <Button
+                                    variant="destructive"
+                                    :disabled="processing"
+                                    >Delete Matter</Button
+                                >
+                            </Form>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     </AppLayout>

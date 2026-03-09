@@ -1,15 +1,25 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
+import { ref } from 'vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client } from '@/types';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
 
-const textareaClass =
-    'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-28 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50';
+const isDeleteDialogOpen = ref(false);
 
 const props = defineProps<{
     client: Client;
@@ -103,12 +113,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                     <div class="grid gap-2">
                         <Label for="notes">Notes</Label>
-                        <textarea
+                        <Textarea
                             id="notes"
                             name="notes"
                             rows="4"
-                            :class="textareaClass"
-                            :value="client.notes ?? ''"
+                            :default-value="client.notes ?? ''"
                             placeholder="Important context for this client"
                         />
                         <InputError :message="errors.notes" />
@@ -140,15 +149,39 @@ const breadcrumbItems: BreadcrumbItem[] = [
                     tenant.
                 </p>
 
-                <Form
-                    v-bind="ClientController.destroy.form(client)"
-                    v-slot="{ processing }"
-                    class="mt-4"
-                >
-                    <Button variant="destructive" :disabled="processing"
-                        >Delete Client</Button
-                    >
-                </Form>
+                <Dialog v-model:open="isDeleteDialogOpen">
+                    <DialogTrigger as-child>
+                        <Button variant="destructive" class="mt-4"
+                            >Delete Client</Button
+                        >
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete {{ client.name }}?</DialogTitle>
+                            <DialogDescription>
+                                This action cannot be undone. The client and all
+                                associated data will be permanently removed.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter>
+                            <Button
+                                variant="outline"
+                                @click="isDeleteDialogOpen = false"
+                                >Cancel</Button
+                            >
+                            <Form
+                                v-bind="ClientController.destroy.form(client)"
+                                v-slot="{ processing }"
+                            >
+                                <Button
+                                    variant="destructive"
+                                    :disabled="processing"
+                                    >Delete Client</Button
+                                >
+                            </Form>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     </AppLayout>

@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { Form, Head, Link } from '@inertiajs/vue3';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem } from '@/types';
-
-const textareaClass =
-    'border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex min-h-28 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -91,11 +89,10 @@ const breadcrumbItems: BreadcrumbItem[] = [
 
                     <div class="grid gap-2">
                         <Label for="notes">Notes</Label>
-                        <textarea
+                        <Textarea
                             id="notes"
                             name="notes"
                             rows="4"
-                            :class="textareaClass"
                             placeholder="Important context for this client"
                         />
                         <InputError :message="errors.notes" />
