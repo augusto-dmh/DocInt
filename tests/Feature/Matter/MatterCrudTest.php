@@ -170,6 +170,51 @@ test('matter can be destroyed', function (): void {
     expect(Matter::query()->find($matter->id))->toBeNull();
 });
 
+test('matter store sets tenant_id to the current tenant', function (): void {
+    [$tenant, $user, $client] = createMatterCrudContext();
+
+    $this->actingAs($user)
+        ->post(route('matters.store'), [
+            'client_id' => $client->id,
+            'title' => 'Tenant Matter',
+            'status' => 'open',
+        ]);
+
+    $matter = Matter::query()->where('title', 'Tenant Matter')->first();
+
+    expect($matter)->not->toBeNull()
+        ->and($matter->tenant_id)->toBe($tenant->id);
+});
+
+test('matter update rejects duplicate tenant-scoped reference number', function (): void {
+    [$tenant, $user, $client] = createMatterCrudContext();
+    Matter::factory()->create([
+        'tenant_id' => $tenant->id,
+        'client_id' => $client->id,
+        'reference_number' => 'MAT-TAKEN',
+    ]);
+    $matter = Matter::factory()->create([
+        'tenant_id' => $tenant->id,
+        'client_id' => $client->id,
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('matters.edit', $matter))
+        ->put(route('matters.update', $matter), [
+            'client_id' => $client->id,
+            'title' => $matter->title,
+            'reference_number' => 'MAT-TAKEN',
+            'status' => 'open',
+        ])
+        ->assertRedirect(route('matters.edit', $matter))
+        ->assertSessionHasErrors(['reference_number']);
+});
+
+test('unauthenticated users cannot access matter routes', function (): void {
+    $this->get(route('matters.index'))->assertRedirect(route('login'));
+    $this->post(route('matters.store'))->assertRedirect(route('login'));
+});
+
 test('cross tenant matter access is denied by tenant scoped binding', function (): void {
     [, $user] = createMatterCrudContext();
     $otherTenant = Tenant::factory()->create();

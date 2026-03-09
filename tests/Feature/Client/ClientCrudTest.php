@@ -144,6 +144,43 @@ test('client can be destroyed', function (): void {
     expect(Client::query()->find($client->id))->toBeNull();
 });
 
+test('client store sets tenant_id to the current tenant', function (): void {
+    [$tenant, $user] = createClientCrudContext();
+
+    $this->actingAs($user)
+        ->post(route('clients.store'), [
+            'name' => 'Tenant Client',
+        ]);
+
+    $client = Client::query()->where('name', 'Tenant Client')->first();
+
+    expect($client)->not->toBeNull()
+        ->and($client->tenant_id)->toBe($tenant->id);
+});
+
+test('client update rejects duplicate tenant-scoped email', function (): void {
+    [$tenant, $user] = createClientCrudContext();
+    Client::factory()->create([
+        'tenant_id' => $tenant->id,
+        'email' => 'taken@example.com',
+    ]);
+    $client = Client::factory()->create(['tenant_id' => $tenant->id]);
+
+    $this->actingAs($user)
+        ->from(route('clients.edit', $client))
+        ->put(route('clients.update', $client), [
+            'name' => $client->name,
+            'email' => 'taken@example.com',
+        ])
+        ->assertRedirect(route('clients.edit', $client))
+        ->assertSessionHasErrors(['email']);
+});
+
+test('unauthenticated users cannot access client routes', function (): void {
+    $this->get(route('clients.index'))->assertRedirect(route('login'));
+    $this->post(route('clients.store'))->assertRedirect(route('login'));
+});
+
 test('cross tenant client access is denied by tenant scoped binding', function (): void {
     [, $user] = createClientCrudContext();
     $otherTenant = Tenant::factory()->create();
