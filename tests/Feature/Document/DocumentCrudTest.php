@@ -24,7 +24,7 @@ afterEach(function (): void {
     tenancy()->end();
 });
 
-function createDocumentCrudContext(): array
+function createDocumentCrudTestContext(): array
 {
     $tenant = Tenant::factory()->create();
     $user = User::factory()->forTenant($tenant)->create();
@@ -42,7 +42,7 @@ function createDocumentCrudContext(): array
 }
 
 test('document index page can be rendered', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     $document = Document::factory()->create([
         'tenant_id' => $tenant->id,
         'matter_id' => $matter->id,
@@ -63,7 +63,7 @@ test('document index page can be rendered', function (): void {
 });
 
 test('document create page can be rendered', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
 
     $this->actingAs($user)
         ->withHeaders(['X-Tenant-ID' => $tenant->id])
@@ -77,7 +77,7 @@ test('document create page can be rendered', function (): void {
 });
 
 test('document can be stored', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     Storage::fake('s3');
 
     $response = $this->actingAs($user)
@@ -104,7 +104,7 @@ test('document can be stored', function (): void {
 });
 
 test('document store validates required fields', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
 
     $this->actingAs($user)
         ->withHeaders(['X-Tenant-ID' => $tenant->id])
@@ -113,7 +113,7 @@ test('document store validates required fields', function (): void {
 });
 
 test('document store validates file mime type and size', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     Storage::fake('s3');
 
     $this->actingAs($user)
@@ -134,7 +134,7 @@ test('document store validates file mime type and size', function (): void {
 });
 
 test('document show page can be rendered and logs a view event', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     $document = Document::factory()->create([
         'tenant_id' => $tenant->id,
         'matter_id' => $matter->id,
@@ -162,7 +162,7 @@ test('document show page can be rendered and logs a view event', function (): vo
 });
 
 test('document edit page can be rendered', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     $document = Document::factory()->create([
         'tenant_id' => $tenant->id,
         'matter_id' => $matter->id,
@@ -181,7 +181,7 @@ test('document edit page can be rendered', function (): void {
 });
 
 test('document can be updated', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     $document = Document::factory()->create([
         'tenant_id' => $tenant->id,
         'matter_id' => $matter->id,
@@ -196,11 +196,27 @@ test('document can be updated', function (): void {
         ])
         ->assertRedirect(route('documents.show', $document));
 
-    expect($document->fresh()->title)->toBe('Updated Title');
+    $updatedAuditLog = AuditLog::query()
+        ->where('auditable_type', Document::class)
+        ->where('auditable_id', $document->id)
+        ->where('action', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($document->fresh()->title)->toBe('Updated Title')
+        ->and($updatedAuditLog)->not()->toBeNull()
+        ->and($updatedAuditLog?->metadata)->toMatchArray([
+            'changes' => [
+                'title' => [
+                    'from' => 'Original Title',
+                    'to' => 'Updated Title',
+                ],
+            ],
+        ]);
 });
 
 test('document can be destroyed and file is removed from s3', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     Storage::fake('s3');
 
     $document = Document::factory()->create([
@@ -227,7 +243,7 @@ test('document can be destroyed and file is removed from s3', function (): void 
 });
 
 test('document download redirects to a presigned url and logs event', function (): void {
-    [$tenant, $user, $matter] = createDocumentCrudContext();
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
     $document = Document::factory()->create([
         'tenant_id' => $tenant->id,
         'matter_id' => $matter->id,
@@ -255,4 +271,27 @@ test('document download redirects to a presigned url and logs event', function (
         ->where('auditable_id', $document->id)
         ->where('action', 'downloaded')
         ->exists())->toBeTrue();
+});
+
+test('failed document upload removes pending records and audit logs', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    tenancy()->initialize($tenant);
+
+    Storage::shouldReceive('disk')
+        ->once()
+        ->with('s3')
+        ->andReturnSelf();
+    Storage::shouldReceive('putFileAs')
+        ->once()
+        ->andReturn(false);
+
+    expect(fn (): Document => app(DocumentUploadService::class)->upload(
+        UploadedFile::fake()->create('retainer.pdf', 256, 'application/pdf'),
+        $matter,
+        $user,
+        'Retainer Agreement',
+    ))->toThrow(\RuntimeException::class, 'Failed to store document on S3.');
+
+    expect(Document::query()->count())->toBe(0)
+        ->and(AuditLog::query()->count())->toBe(0);
 });

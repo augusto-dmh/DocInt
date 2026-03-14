@@ -22,7 +22,7 @@ afterEach(function (): void {
     tenancy()->end();
 });
 
-function createDocumentAuthContext(string $role): array
+function createDocumentAuthorizationContext(string $role): array
 {
     $tenant = Tenant::factory()->create();
     $user = User::factory()->forTenant($tenant)->create();
@@ -46,7 +46,7 @@ function createDocumentAuthContext(string $role): array
 
 describe('tenant-admin', function (): void {
     test('can access document CRUD routes', function (): void {
-        [$tenant, $user, $matter, $document] = createDocumentAuthContext('tenant-admin');
+        [$tenant, $user, $matter, $document] = createDocumentAuthorizationContext('tenant-admin');
         Storage::fake('s3');
 
         $this->actingAs($user)
@@ -97,7 +97,7 @@ describe('tenant-admin', function (): void {
     });
 
     test('can download documents', function (): void {
-        [$tenant, $user, , $document] = createDocumentAuthContext('tenant-admin');
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('tenant-admin');
         $downloadUrl = 'https://example.test/tenant-admin-document';
 
         $this->mock(DocumentUploadService::class, function (MockInterface $mock) use ($document, $downloadUrl): void {
@@ -116,7 +116,7 @@ describe('tenant-admin', function (): void {
 
 describe('partner', function (): void {
     test('can view create edit and update but cannot delete documents', function (): void {
-        [$tenant, $user, $matter, $document] = createDocumentAuthContext('partner');
+        [$tenant, $user, $matter, $document] = createDocumentAuthorizationContext('partner');
         Storage::fake('s3');
 
         $this->actingAs($user)
@@ -151,7 +151,7 @@ describe('partner', function (): void {
     });
 
     test('can download documents', function (): void {
-        [$tenant, $user, , $document] = createDocumentAuthContext('partner');
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('partner');
         $downloadUrl = 'https://example.test/partner-document';
 
         $this->mock(DocumentUploadService::class, function (MockInterface $mock) use ($document, $downloadUrl): void {
@@ -170,7 +170,7 @@ describe('partner', function (): void {
 
 describe('associate', function (): void {
     test('can view create edit and update but cannot delete documents', function (): void {
-        [$tenant, $user, $matter, $document] = createDocumentAuthContext('associate');
+        [$tenant, $user, $matter, $document] = createDocumentAuthorizationContext('associate');
         Storage::fake('s3');
 
         $this->actingAs($user)
@@ -205,7 +205,7 @@ describe('associate', function (): void {
     });
 
     test('can download documents', function (): void {
-        [$tenant, $user, , $document] = createDocumentAuthContext('associate');
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('associate');
         $downloadUrl = 'https://example.test/associate-document';
 
         $this->mock(DocumentUploadService::class, function (MockInterface $mock) use ($document, $downloadUrl): void {
@@ -224,7 +224,7 @@ describe('associate', function (): void {
 
 describe('client role', function (): void {
     test('can view but cannot create edit update or delete documents', function (): void {
-        [$tenant, $user, $matter, $document] = createDocumentAuthContext('client');
+        [$tenant, $user, $matter, $document] = createDocumentAuthorizationContext('client');
         Storage::fake('s3');
 
         $this->actingAs($user)
@@ -267,7 +267,7 @@ describe('client role', function (): void {
     });
 
     test('can download documents', function (): void {
-        [$tenant, $user, , $document] = createDocumentAuthContext('client');
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('client');
         $downloadUrl = 'https://example.test/client-document';
 
         $this->mock(DocumentUploadService::class, function (MockInterface $mock) use ($document, $downloadUrl): void {
