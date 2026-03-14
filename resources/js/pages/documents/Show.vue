@@ -48,9 +48,9 @@ const canEditDocument = computed(() =>
 
                 <div class="flex flex-wrap gap-3">
                     <Button as-child variant="outline">
-                        <Link :href="DocumentController.download(document)"
-                            >Download</Link
-                        >
+                        <a :href="DocumentController.download.url(document)">
+                            Download
+                        </a>
                     </Button>
                     <Button v-if="canEditDocument" as-child>
                         <Link :href="DocumentController.edit(document)"
