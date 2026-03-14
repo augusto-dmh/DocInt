@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\DocumentStatus;
+use App\Policies\DocumentPolicy;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Stancl\Tenancy\Database\Concerns\BelongsToTenant;
 
+#[UsePolicy(DocumentPolicy::class)]
 class Document extends Model
 {
     /** @use HasFactory<\Database\Factories\DocumentFactory> */
