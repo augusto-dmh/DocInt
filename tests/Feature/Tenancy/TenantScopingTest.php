@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Client;
+use App\Models\Document;
 use App\Models\Matter;
 use App\Models\Tenant;
 use App\Models\User;
@@ -128,4 +129,68 @@ test('creating a matter in one tenant does not leak into another tenants index',
 
     tenancy()->initialize($tenantB);
     expect(Matter::query()->count())->toBe(0);
+});
+
+test('documents index only returns records for the authenticated users tenant', function (): void {
+    [$tenant, $user] = createTenantUserWithRole();
+    $tenantClient = Client::factory()->create(['tenant_id' => $tenant->id]);
+    $tenantMatter = Matter::factory()->create([
+        'tenant_id' => $tenant->id,
+        'client_id' => $tenantClient->id,
+    ]);
+
+    $otherTenant = Tenant::factory()->create();
+    $otherTenantClient = Client::factory()->create(['tenant_id' => $otherTenant->id]);
+    $otherTenantMatter = Matter::factory()->create([
+        'tenant_id' => $otherTenant->id,
+        'client_id' => $otherTenantClient->id,
+    ]);
+
+    Document::factory()->count(2)->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $tenantMatter->id,
+    ]);
+
+    Document::factory()->count(3)->create([
+        'tenant_id' => $otherTenant->id,
+        'matter_id' => $otherTenantMatter->id,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('documents.index'))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('documents/Index')
+            ->has('documents.data', 2)
+            ->where('documents.data.0.tenant_id', $tenant->id)
+            ->where('documents.data.1.tenant_id', $tenant->id)
+        );
+});
+
+test('document routes deny cross tenant access', function (): void {
+    [$tenantA, $userA] = createTenantUserWithRole();
+    Client::factory()->create(['tenant_id' => $tenantA->id]);
+
+    $tenantB = Tenant::factory()->create();
+    $tenantBClient = Client::factory()->create(['tenant_id' => $tenantB->id]);
+    $tenantBMatter = Matter::factory()->create([
+        'tenant_id' => $tenantB->id,
+        'client_id' => $tenantBClient->id,
+    ]);
+    $tenantBDocument = Document::factory()->create([
+        'tenant_id' => $tenantB->id,
+        'matter_id' => $tenantBMatter->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->get(route('matters.documents.create', $tenantBMatter))
+        ->assertNotFound();
+
+    $this->actingAs($userA)
+        ->get(route('documents.show', $tenantBDocument))
+        ->assertNotFound();
+
+    $this->actingAs($userA)
+        ->get(route('documents.download', $tenantBDocument))
+        ->assertNotFound();
 });
