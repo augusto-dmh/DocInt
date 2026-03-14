@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use App\Enums\MatterStatus;
+use App\Policies\MatterPolicy;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Stancl\Tenancy\Database\Concerns\BelongsToTenant;
 
+#[UsePolicy(MatterPolicy::class)]
 class Matter extends Model
 {
     /** @use HasFactory<\Database\Factories\MatterFactory> */

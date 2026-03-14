@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import ClientController from '@/actions/App/Http/Controllers/ClientController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type { BreadcrumbItem, Client, Document, Matter } from '@/types';
-import ClientController from '@/actions/App/Http/Controllers/ClientController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 const props = defineProps<{
     matter: Matter & { client: Client; documents: Document[] };
@@ -19,6 +20,11 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: props.matter.title,
     },
 ];
+
+const page = usePage();
+const canEditMatter = computed(() =>
+    page.props.auth.permissions.includes('edit matters'),
+);
 
 function matterStatusClass(status: Matter['status']): string {
     if (status === 'open') {
@@ -72,7 +78,7 @@ function documentStatusClass(status: Document['status']): string {
                     </p>
                 </div>
 
-                <Button as-child variant="outline">
+                <Button v-if="canEditMatter" as-child variant="outline">
                     <Link :href="MatterController.edit(matter)">Edit</Link>
                 </Button>
             </div>

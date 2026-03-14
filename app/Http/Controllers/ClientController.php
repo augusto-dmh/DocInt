@@ -13,6 +13,8 @@ class ClientController extends Controller
 {
     public function index(): Response
     {
+        $this->authorize('viewAny', Client::class);
+
         return Inertia::render('clients/Index', [
             'clients' => Client::query()
                 ->withCount('matters')
@@ -23,11 +25,15 @@ class ClientController extends Controller
 
     public function create(): Response
     {
+        $this->authorize('create', Client::class);
+
         return Inertia::render('clients/Create');
     }
 
     public function store(StoreClientRequest $request): RedirectResponse
     {
+        $this->authorize('create', Client::class);
+
         Client::query()->create($request->validated());
 
         return to_route('clients.index');
@@ -36,6 +42,7 @@ class ClientController extends Controller
     public function show(Client $client): Response
     {
         abort_unless($client->tenant_id === tenant()?->id, 404);
+        $this->authorize('view', $client);
 
         return Inertia::render('clients/Show', [
             'client' => $client->load([
@@ -49,6 +56,7 @@ class ClientController extends Controller
     public function edit(Client $client): Response
     {
         abort_unless($client->tenant_id === tenant()?->id, 404);
+        $this->authorize('update', $client);
 
         return Inertia::render('clients/Edit', [
             'client' => $client,
@@ -58,6 +66,7 @@ class ClientController extends Controller
     public function update(UpdateClientRequest $request, Client $client): RedirectResponse
     {
         abort_unless($client->tenant_id === tenant()?->id, 404);
+        $this->authorize('update', $client);
 
         $client->update($request->validated());
 
@@ -67,6 +76,7 @@ class ClientController extends Controller
     public function destroy(Client $client): RedirectResponse
     {
         abort_unless($client->tenant_id === tenant()?->id, 404);
+        $this->authorize('delete', $client);
 
         $client->delete();
 

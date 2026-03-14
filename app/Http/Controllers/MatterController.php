@@ -14,6 +14,8 @@ class MatterController extends Controller
 {
     public function index(): Response
     {
+        $this->authorize('viewAny', Matter::class);
+
         return Inertia::render('matters/Index', [
             'matters' => Matter::query()
                 ->with('client')
@@ -25,6 +27,8 @@ class MatterController extends Controller
 
     public function create(): Response
     {
+        $this->authorize('create', Matter::class);
+
         return Inertia::render('matters/Create', [
             'clients' => Client::query()
                 ->orderBy('name')
@@ -34,6 +38,8 @@ class MatterController extends Controller
 
     public function store(StoreMatterRequest $request): RedirectResponse
     {
+        $this->authorize('create', Matter::class);
+
         Matter::query()->create($request->validated());
 
         return to_route('matters.index');
@@ -42,6 +48,7 @@ class MatterController extends Controller
     public function show(Matter $matter): Response
     {
         abort_unless($matter->tenant_id === tenant()?->id, 404);
+        $this->authorize('view', $matter);
 
         return Inertia::render('matters/Show', [
             'matter' => $matter->load([
@@ -54,6 +61,7 @@ class MatterController extends Controller
     public function edit(Matter $matter): Response
     {
         abort_unless($matter->tenant_id === tenant()?->id, 404);
+        $this->authorize('update', $matter);
 
         return Inertia::render('matters/Edit', [
             'matter' => $matter,
@@ -66,6 +74,7 @@ class MatterController extends Controller
     public function update(UpdateMatterRequest $request, Matter $matter): RedirectResponse
     {
         abort_unless($matter->tenant_id === tenant()?->id, 404);
+        $this->authorize('update', $matter);
 
         $matter->update($request->validated());
 
@@ -75,6 +84,7 @@ class MatterController extends Controller
     public function destroy(Matter $matter): RedirectResponse
     {
         abort_unless($matter->tenant_id === tenant()?->id, 404);
+        $this->authorize('delete', $matter);
 
         $matter->delete();
 
