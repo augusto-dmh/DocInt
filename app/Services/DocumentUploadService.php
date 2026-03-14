@@ -15,7 +15,7 @@ class DocumentUploadService
 {
     public function upload(UploadedFile $file, Matter $matter, User $user, string $title): Document
     {
-        return DB::transaction(function () use ($file, $matter, $user, $title): Document {
+        $document = DB::transaction(function () use ($file, $matter, $user, $title): Document {
             $document = Document::query()->create([
                 'tenant_id' => $matter->tenant_id,
                 'matter_id' => $matter->id,
@@ -23,24 +23,9 @@ class DocumentUploadService
                 'title' => $title,
                 'file_path' => 'pending',
                 'file_name' => $file->getClientOriginalName(),
-                'mime_type' => $file->getClientMimeType(),
+                'mime_type' => $file->getMimeType() ?? $file->getClientMimeType(),
                 'file_size' => $file->getSize() ?? 0,
                 'status' => 'uploaded',
-            ]);
-
-            $filePath = $this->buildFilePath($matter->tenant_id, $document->id, $file);
-            $storedPath = Storage::disk('s3')->putFileAs(
-                dirname($filePath),
-                $file,
-                basename($filePath),
-            );
-
-            if ($storedPath === false) {
-                throw new RuntimeException('Failed to store document on S3.');
-            }
-
-            $document->update([
-                'file_path' => $storedPath,
             ]);
 
             $document->auditLogs()->create([
@@ -54,8 +39,26 @@ class DocumentUploadService
                 ],
             ]);
 
-            return $document->fresh(['matter', 'uploader']);
+            return $document;
         });
+
+        $filePath = $this->buildFilePath($matter->tenant_id, $document->id, $file);
+        $storedPath = Storage::disk('s3')->putFileAs(
+            dirname($filePath),
+            $file,
+            basename($filePath),
+        );
+
+        if ($storedPath === false) {
+            $document->auditLogs()->delete();
+            $document->delete();
+
+            throw new RuntimeException('Failed to store document on S3.');
+        }
+
+        $document->update(['file_path' => $storedPath]);
+
+        return $document->fresh(['matter', 'uploader']);
     }
 
     public function generatePresignedUrl(Document $document, int $ttlMinutes = 15): string
@@ -68,16 +71,22 @@ class DocumentUploadService
 
     public function delete(Document $document, User $user): void
     {
-        if ($document->file_path !== '' && $document->file_path !== 'pending') {
-            Storage::disk('s3')->delete($document->file_path);
-        }
+        $filePath = $document->file_path;
 
-        $document->auditLogs()->create([
-            'tenant_id' => $document->tenant_id,
-            'user_id' => $user->id,
-            'action' => 'deleted',
-            'metadata' => null,
-        ]);
+        DB::transaction(function () use ($document, $user): void {
+            $document->auditLogs()->create([
+                'tenant_id' => $document->tenant_id,
+                'user_id' => $user->id,
+                'action' => 'deleted',
+                'metadata' => null,
+            ]);
+
+            $document->delete();
+        });
+
+        if ($filePath !== '' && $filePath !== 'pending') {
+            Storage::disk('s3')->delete($filePath);
+        }
     }
 
     protected function buildFilePath(string $tenantId, int $documentId, UploadedFile $file): string

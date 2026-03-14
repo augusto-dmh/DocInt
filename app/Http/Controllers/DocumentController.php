@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Services\DocumentUploadService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -46,7 +45,7 @@ class DocumentController extends Controller
         abort_unless($matter->tenant_id === tenant()?->id, 404);
         $this->authorize('create', Document::class);
 
-        /** @var UploadedFile $file */
+        /** @var \Illuminate\Http\UploadedFile $file */
         $file = $request->file('file');
 
         /** @var User $user */
@@ -110,7 +109,6 @@ class DocumentController extends Controller
         $user = $request->user();
 
         $this->documentUploadService->delete($document, $user);
-        $document->delete();
 
         return to_route('documents.index');
     }
