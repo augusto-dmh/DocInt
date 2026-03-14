@@ -45,6 +45,22 @@ export type Document = {
     created_at: string;
     updated_at: string;
     matter?: Matter;
+    uploader?: {
+        id: number;
+        name: string;
+        email: string;
+    } | null;
+};
+
+export type AuditActivity = {
+    id: number;
+    action: string;
+    created_at: string;
+    user: {
+        id: number;
+        name: string;
+    } | null;
+    ip_address: string | null;
 };
 
 export type PaginatedData<T> = {
