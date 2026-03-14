@@ -10,9 +10,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 class DocumentUploadService
 {
+    protected const string PENDING_FILE_PATH = 'pending';
+
     public function upload(UploadedFile $file, Matter $matter, User $user, string $title): Document
     {
         $document = DB::transaction(function () use ($file, $matter, $user, $title): Document {
@@ -21,7 +24,7 @@ class DocumentUploadService
                 'matter_id' => $matter->id,
                 'uploaded_by' => $user->id,
                 'title' => $title,
-                'file_path' => 'pending',
+                'file_path' => self::PENDING_FILE_PATH,
                 'file_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType() ?? $file->getClientMimeType(),
                 'file_size' => $file->getSize() ?? 0,
@@ -43,20 +46,33 @@ class DocumentUploadService
         });
 
         $filePath = $this->buildFilePath($matter->tenant_id, $document->id, $file);
-        $storedPath = Storage::disk('s3')->putFileAs(
-            dirname($filePath),
-            $file,
-            basename($filePath),
-        );
+
+        try {
+            $storedPath = Storage::disk('s3')->putFileAs(
+                dirname($filePath),
+                $file,
+                basename($filePath),
+            );
+        } catch (Throwable $throwable) {
+            $this->deletePendingDocumentRecord($document);
+
+            throw $throwable;
+        }
 
         if ($storedPath === false) {
-            $document->auditLogs()->delete();
-            $document->delete();
+            $this->deletePendingDocumentRecord($document);
 
             throw new RuntimeException('Failed to store document on S3.');
         }
 
-        $document->update(['file_path' => $storedPath]);
+        try {
+            $document->update(['file_path' => $storedPath]);
+        } catch (Throwable $throwable) {
+            Storage::disk('s3')->delete($storedPath);
+            $this->deletePendingDocumentRecord($document);
+
+            throw $throwable;
+        }
 
         return $document->fresh(['matter', 'uploader']);
     }
@@ -84,9 +100,17 @@ class DocumentUploadService
             $document->delete();
         });
 
-        if ($filePath !== '' && $filePath !== 'pending') {
+        if ($filePath !== '' && $filePath !== self::PENDING_FILE_PATH) {
             Storage::disk('s3')->delete($filePath);
         }
+    }
+
+    protected function deletePendingDocumentRecord(Document $document): void
+    {
+        DB::transaction(function () use ($document): void {
+            $document->auditLogs()->delete();
+            $document->delete();
+        });
     }
 
     protected function buildFilePath(string $tenantId, int $documentId, UploadedFile $file): string

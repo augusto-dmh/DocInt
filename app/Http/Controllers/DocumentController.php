@@ -32,7 +32,7 @@ class DocumentController extends Controller
 
     public function create(Matter $matter): Response
     {
-        abort_unless($matter->tenant_id === tenant()?->id, 404);
+        $matter = $this->ensureCurrentTenantMatter($matter);
         $this->authorize('create', Document::class);
 
         return Inertia::render('documents/Create', [
@@ -42,7 +42,7 @@ class DocumentController extends Controller
 
     public function store(StoreDocumentRequest $request, Matter $matter): RedirectResponse
     {
-        abort_unless($matter->tenant_id === tenant()?->id, 404);
+        $matter = $this->ensureCurrentTenantMatter($matter);
         $this->authorize('create', Document::class);
 
         /** @var \Illuminate\Http\UploadedFile $file */
@@ -63,7 +63,7 @@ class DocumentController extends Controller
 
     public function show(Request $request, Document $document): Response
     {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
+        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
         $this->logDocumentAction($document, $request, 'viewed');
@@ -82,7 +82,7 @@ class DocumentController extends Controller
 
     public function edit(Document $document): Response
     {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
+        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('update', $document);
 
         return Inertia::render('documents/Edit', [
@@ -92,17 +92,26 @@ class DocumentController extends Controller
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
     {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
+        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('update', $document);
 
+        $originalTitle = $document->title;
         $document->update($request->validated());
+        $this->logDocumentAction($document, $request, 'updated', [
+            'changes' => [
+                'title' => [
+                    'from' => $originalTitle,
+                    'to' => $document->title,
+                ],
+            ],
+        ]);
 
         return to_route('documents.show', $document);
     }
 
     public function destroy(Request $request, Document $document): RedirectResponse
     {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
+        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('delete', $document);
 
         /** @var User $user */
@@ -115,7 +124,7 @@ class DocumentController extends Controller
 
     public function download(Request $request, Document $document): RedirectResponse
     {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
+        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
         $this->logDocumentAction($document, $request, 'downloaded');
@@ -123,17 +132,34 @@ class DocumentController extends Controller
         return redirect()->away($this->documentUploadService->generatePresignedUrl($document));
     }
 
-    protected function logDocumentAction(Document $document, Request $request, string $action): void
+    /**
+     * @param array<string, mixed> $metadata
+     */
+    protected function logDocumentAction(Document $document, Request $request, string $action, array $metadata = []): void
     {
         $document->auditLogs()->create([
             'tenant_id' => $document->tenant_id,
             'user_id' => $request->user()?->id,
             'action' => $action,
-            'metadata' => [
+            'metadata' => array_merge([
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
-            ],
+            ], $metadata),
         ]);
+    }
+
+    protected function ensureCurrentTenantMatter(Matter $matter): Matter
+    {
+        abort_unless($matter->tenant_id === tenant()?->id, 404);
+
+        return $matter;
+    }
+
+    protected function ensureCurrentTenantDocument(Document $document): Document
+    {
+        abort_unless($document->tenant_id === tenant()?->id, 404);
+
+        return $document;
     }
 
     /**
