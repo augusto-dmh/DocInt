@@ -139,6 +139,13 @@ class OpenAiOcrProvider implements OcrProvider
         return max(1, $timeoutSeconds);
     }
 
+    protected function resolveMaxSourceCharacters(): int
+    {
+        $limit = (int) config('processing.openai.ocr_max_source_characters', 3000);
+
+        return max(100, $limit);
+    }
+
     /**
      * @return list<string>
      */
@@ -198,7 +205,7 @@ class OpenAiOcrProvider implements OcrProvider
             throw new RuntimeException('Document source text is unavailable for OpenAI OCR.');
         }
 
-        return mb_substr($sourceText, 0, 3000);
+        return mb_substr($sourceText, 0, $this->resolveMaxSourceCharacters());
     }
 
     protected function readTextFromStorage(Document $document): string

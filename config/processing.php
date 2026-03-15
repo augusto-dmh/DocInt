@@ -27,6 +27,7 @@ return [
         'ocr_model' => env('PROCESSING_OPENAI_OCR_MODEL', env('PROCESSING_OPENAI_MODEL', 'gpt-4o-mini')),
         'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'timeout_seconds' => (int) env('PROCESSING_OPENAI_TIMEOUT', 30),
+        'ocr_max_source_characters' => (int) env('PROCESSING_OPENAI_OCR_MAX_SOURCE_CHARACTERS', 3000),
     ],
     'provider_circuit' => [
         'failure_threshold' => (int) env('PROCESSING_PROVIDER_CIRCUIT_FAILURE_THRESHOLD', 3),

@@ -12,6 +12,7 @@ test('processing config exposes openai runtime defaults for pipeline consumers',
             'ocr_model' => 'gpt-4o-mini',
             'base_url' => 'https://api.openai.com/v1',
             'timeout_seconds' => 30,
+            'ocr_max_source_characters' => 3000,
         ])
         ->and(config('processing.retry_attempts'))->toBe(3)
         ->and(config('processing.retry_backoff'))->toBe([5, 15, 45])
