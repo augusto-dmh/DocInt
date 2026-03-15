@@ -158,7 +158,7 @@ test('background realtime refresh does not create an extra viewed audit log', fu
         'uploaded_by' => $user->id,
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->withHeaders(['X-Tenant-ID' => $tenant->id])
         ->get(route('documents.show', $document))
         ->assertSuccessful();
@@ -169,19 +169,17 @@ test('background realtime refresh does not create an extra viewed audit log', fu
         ->where('action', 'viewed')
         ->count())->toBe(1);
 
-    $this->actingAs($user)
-        ->withHeaders([
-            'X-Tenant-ID' => $tenant->id,
-            'X-Inertia' => 'true',
-            'X-Inertia-Partial-Component' => 'documents/Show',
-            'X-Inertia-Partial-Data' => 'document,recentActivity,processingActivity',
-        ])
-        ->get(route('documents.show', $document))
-        ->assertSuccessful()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('documents/Show')
-            ->where('document.id', $document->id)
-        );
+    $response->assertInertia(fn (Assert $page) => $page
+        ->reloadOnly(
+            ['document', 'recentActivity', 'processingActivity'],
+            fn (Assert $reload) => $reload
+                ->component('documents/Show')
+                ->where('document.id', $document->id)
+                ->has('recentActivity')
+                ->has('processingActivity')
+                ->missing('documentExperience')
+        )
+    );
 
     expect(AuditLog::query()
         ->where('auditable_type', Document::class)
