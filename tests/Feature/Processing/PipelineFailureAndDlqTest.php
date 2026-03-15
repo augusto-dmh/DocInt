@@ -10,6 +10,7 @@ use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\Tenant;
+use App\Services\DocumentStatusTransitionService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
@@ -236,6 +237,41 @@ test('ocr degraded retries exhaustion dead letters and transitions to extraction
     app()->call([$deadLetterJob, 'handle']);
 
     expect($document->fresh()->status->value)->toBe('extraction_failed');
+});
+
+test('virus scan handles concurrent transition gracefully without dead lettering', function (): void {
+    Queue::fake();
+
+    $document = createFailureDocument('uploaded', 'concurrent-scan.pdf');
+    $payload = failurePayload($document);
+
+    $this->partialMock(DocumentStatusTransitionService::class, function ($mock): void {
+        $mock->shouldReceive('transition')
+            ->once()
+            ->andThrow(new InvalidArgumentException('Transition rejected by concurrent worker'));
+    });
+
+    app()->call([new VirusScanConsumerJob($payload), 'handle']);
+
+    Queue::assertNothingPushed();
+});
+
+test('ocr extraction handles concurrent transition gracefully without dead lettering', function (): void {
+    Queue::fake();
+    Http::fake();
+
+    $document = createFailureDocument('scan_passed', 'concurrent-ocr.pdf');
+    $payload = failurePayload($document, ['ocr_source_text' => 'Sample source text']);
+
+    $this->partialMock(DocumentStatusTransitionService::class, function ($mock): void {
+        $mock->shouldReceive('transition')
+            ->once()
+            ->andThrow(new InvalidArgumentException('Transition rejected by concurrent worker'));
+    });
+
+    app()->call([new OcrExtractionConsumerJob($payload), 'handle']);
+
+    Queue::assertNothingPushed();
 });
 
 test('classification degraded retries exhaustion dead letters and transitions to classification failed', function (): void {

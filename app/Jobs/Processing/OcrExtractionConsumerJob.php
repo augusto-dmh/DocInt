@@ -14,6 +14,7 @@ use App\Services\ProcessingEventRecorder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -88,13 +89,17 @@ class OcrExtractionConsumerJob implements ShouldQueue
         }
 
         if ($statusBeforeProcessing === 'scan_passed') {
-            $document = $transitionService->transition(
-                document: $document,
-                toStatus: 'extracting',
-                consumerName: 'ocr-extraction-transition',
-                messageId: (string) Str::uuid(),
-                metadata: ['pipeline' => 'ocr-extraction'],
-            );
+            try {
+                $document = $transitionService->transition(
+                    document: $document,
+                    toStatus: 'extracting',
+                    consumerName: 'ocr-extraction-transition',
+                    messageId: (string) Str::uuid(),
+                    metadata: ['pipeline' => 'ocr-extraction'],
+                );
+            } catch (InvalidArgumentException) {
+                // A concurrent worker already advanced the document status; reload and continue.
+            }
         }
 
         $document = $document->fresh();

@@ -10,6 +10,7 @@ use App\Services\ProcessingEventRecorder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Throwable;
 
 class VirusScanConsumerJob implements ShouldQueue
@@ -71,13 +72,17 @@ class VirusScanConsumerJob implements ShouldQueue
         $statusBeforeProcessing = $this->resolveDocumentStatus($document);
 
         if ($statusBeforeProcessing === 'uploaded') {
-            $document = $transitionService->transition(
-                document: $document,
-                toStatus: 'scanning',
-                consumerName: 'virus-scan-transition',
-                messageId: (string) Str::uuid(),
-                metadata: ['pipeline' => 'virus-scan'],
-            );
+            try {
+                $document = $transitionService->transition(
+                    document: $document,
+                    toStatus: 'scanning',
+                    consumerName: 'virus-scan-transition',
+                    messageId: (string) Str::uuid(),
+                    metadata: ['pipeline' => 'virus-scan'],
+                );
+            } catch (InvalidArgumentException) {
+                // A concurrent worker already advanced the document status; reload and continue.
+            }
         }
 
         $document = $document->fresh();
