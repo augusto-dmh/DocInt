@@ -18,7 +18,8 @@
         "laravel/wayfinder": "^0.1.9",
         "league/flysystem-aws-s3-v3": "^3.32",
         "spatie/laravel-permission": "^7.1",
-        "stancl/tenancy": "^3.9"
+        "stancl/tenancy": "^3.9",
+        "vladimir-yuldashev/laravel-queue-rabbitmq": "^14.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
