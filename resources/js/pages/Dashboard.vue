@@ -78,7 +78,7 @@ function reloadDashboardSnapshot(): void {
         onFinish: () => {
             isReloadingDashboard.value = false;
 
-            if (! hasPendingDashboardReload.value) {
+            if (!hasPendingDashboardReload.value) {
                 return;
             }
 
@@ -158,7 +158,8 @@ useDocumentChannel({
                     </h2>
                     <p class="doc-subtle mt-2 max-w-2xl text-sm">
                         Tenant-scoped document throughput and the most recent
-                        processing movements currently visible in this workspace.
+                        processing movements currently visible in this
+                        workspace.
                     </p>
                 </div>
 
