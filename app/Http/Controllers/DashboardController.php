@@ -30,10 +30,6 @@ class DashboardController extends Controller
         }
 
         if (! $user->hasSuperAdminRole()) {
-            if (! is_string($user->tenant_id) || $user->tenant_id === '') {
-                return null;
-            }
-
             return $user->tenant_id;
         }
 
@@ -57,7 +53,7 @@ class DashboardController extends Controller
      */
     protected function dashboardStats(?string $tenantId): array
     {
-        if (! is_string($tenantId) || $tenantId === '') {
+        if ($tenantId === null) {
             return [
                 'processed_today' => 0,
                 'pending_review' => 0,
@@ -91,7 +87,7 @@ class DashboardController extends Controller
      */
     protected function recentDocuments(?string $tenantId): array
     {
-        if (! is_string($tenantId) || $tenantId === '') {
+        if ($tenantId === null) {
             return [];
         }
 
