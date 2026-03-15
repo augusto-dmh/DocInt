@@ -1,13 +1,27 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import DocumentEmptyState from '@/components/documents/DocumentEmptyState.vue';
+import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
+import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
+import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
+import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type { BreadcrumbItem, Document, PaginatedData } from '@/types';
+import type {
+    BreadcrumbItem,
+    Document,
+    DocumentExperienceGuardrails,
+    PaginatedData,
+} from '@/types';
+import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 defineProps<{
     documents: PaginatedData<Document>;
+    documentExperience: DocumentExperienceGuardrails;
 }>();
+
+const canEditDocument =
+    usePage().props.auth.permissions.includes('edit documents');
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -16,56 +30,149 @@ const breadcrumbItems: BreadcrumbItem[] = [
     },
 ];
 
-const page = usePage();
-const canEditDocument = computed(() =>
-    page.props.auth.permissions.includes('edit documents'),
-);
+function formatDate(value: string): string {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(new Date(value));
+}
+
+function formatFileSize(bytes: number): string {
+    const sizeInMb = bytes / (1024 * 1024);
+
+    if (sizeInMb >= 1) {
+        return `${sizeInMb.toFixed(2)} MB`;
+    }
+
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="Documents" />
 
-        <div
-            class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4"
+        <DocumentExperienceFrame
+            :document-experience="documentExperience"
+            eyebrow="Private repository"
+            title="Document ledger"
+            description="Searchable matter documents with immutable storage, tenant boundaries, and traceable activity."
         >
-            <div class="space-y-2">
-                <h1 class="text-2xl font-semibold tracking-tight">Documents</h1>
-                <p class="text-sm text-muted-foreground">
-                    Review tenant-scoped uploads, linked matters, and storage
-                    metadata.
-                </p>
-            </div>
-
-            <div
-                class="overflow-hidden rounded-xl border border-sidebar-border/70"
+            <DocumentEmptyState
+                v-if="documents.data.length === 0"
+                :document-experience="documentExperience"
+                title="No documents archived yet"
+                description="Upload the first file from a matter workspace to start building this tenant's ledger."
+                class="doc-fade-up doc-delay-1 mt-6"
             >
-                <div
-                    v-if="documents.data.length === 0"
-                    class="flex min-h-64 items-center justify-center px-6 py-12 text-center text-sm text-muted-foreground"
-                >
-                    No documents have been uploaded yet.
+                <template #actions>
+                    <Button as-child variant="outline">
+                        <Link :href="MatterController.index()">
+                            Open matters
+                        </Link>
+                    </Button>
+                </template>
+            </DocumentEmptyState>
+
+            <DocumentExperienceSurface
+                v-else
+                :document-experience="documentExperience"
+                :delay="1"
+                class="mt-6 overflow-hidden"
+            >
+                <div class="grid gap-3 p-4 sm:p-5 md:hidden">
+                    <article
+                        v-for="document in documents.data"
+                        :key="`mobile-${document.id}`"
+                        class="rounded-xl border border-[var(--doc-border)]/75 bg-[var(--doc-paper)]/65 p-4"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <Link
+                                :href="DocumentController.show(document)"
+                                class="doc-title text-base font-semibold hover:underline"
+                            >
+                                {{ document.title }}
+                            </Link>
+                            <DocumentStatusBadge :status="document.status" />
+                        </div>
+
+                        <p class="doc-subtle mt-2 text-xs">
+                            {{ document.file_name }} •
+                            {{ formatFileSize(document.file_size) }}
+                        </p>
+                        <p class="doc-subtle mt-1 text-xs">
+                            Matter:
+                            <Link
+                                v-if="document.matter"
+                                :href="MatterController.show(document.matter)"
+                                class="hover:underline"
+                            >
+                                {{ document.matter.title }}
+                            </Link>
+                            <span v-else>—</span>
+                        </p>
+                        <p class="doc-subtle mt-1 text-xs">
+                            Created {{ formatDate(document.created_at) }}
+                        </p>
+
+                        <div class="mt-4 flex items-center gap-3">
+                            <Link
+                                :href="DocumentController.show(document)"
+                                class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
+                            >
+                                Open
+                            </Link>
+                            <Link
+                                v-if="canEditDocument"
+                                :href="DocumentController.edit(document)"
+                                class="doc-subtle text-xs font-medium tracking-[0.12em] uppercase hover:underline"
+                            >
+                                Edit
+                            </Link>
+                        </div>
+                    </article>
                 </div>
 
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                <div class="hidden overflow-x-auto md:block">
+                    <table class="min-w-full text-sm">
                         <thead>
                             <tr
-                                class="border-b border-sidebar-border/70 bg-muted/40"
+                                class="border-b border-[var(--doc-border)]/75 bg-muted/70"
                             >
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Title
                                 </th>
-                                <th class="px-4 py-3 text-left font-medium">
-                                    Matter
-                                </th>
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     File
                                 </th>
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    Matter
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Status
                                 </th>
-                                <th class="px-4 py-3 text-right font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    Uploader
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    Created
+                                </th>
+                                <th
+                                    class="px-4 py-3 text-right text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Actions
                                 </th>
                             </tr>
@@ -74,26 +181,48 @@ const canEditDocument = computed(() =>
                             <tr
                                 v-for="document in documents.data"
                                 :key="document.id"
-                                class="border-b border-sidebar-border/70 last:border-0"
+                                class="border-b border-[var(--doc-border)]/70 last:border-0"
                             >
                                 <td class="px-4 py-3">
                                     <Link
                                         :href="
                                             DocumentController.show(document)
                                         "
-                                        class="font-medium text-foreground hover:underline"
+                                        class="doc-title text-base font-semibold hover:underline"
                                     >
                                         {{ document.title }}
                                     </Link>
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
-                                    {{ document.matter?.title ?? '—' }}
+                                <td class="doc-subtle px-4 py-3">
+                                    <p>{{ document.file_name }}</p>
+                                    <p class="text-xs">
+                                        {{ formatFileSize(document.file_size) }}
+                                    </p>
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
-                                    {{ document.file_name }}
+                                <td class="px-4 py-3">
+                                    <Link
+                                        v-if="document.matter"
+                                        :href="
+                                            MatterController.show(
+                                                document.matter,
+                                            )
+                                        "
+                                        class="doc-subtle hover:underline"
+                                    >
+                                        {{ document.matter.title }}
+                                    </Link>
+                                    <span v-else class="doc-subtle">—</span>
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
-                                    {{ document.status.replaceAll('_', ' ') }}
+                                <td class="px-4 py-3">
+                                    <DocumentStatusBadge
+                                        :status="document.status"
+                                    />
+                                </td>
+                                <td class="doc-subtle px-4 py-3">
+                                    {{ document.uploader?.name ?? 'System' }}
+                                </td>
+                                <td class="doc-subtle px-4 py-3">
+                                    {{ formatDate(document.created_at) }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="inline-flex items-center gap-3">
@@ -103,7 +232,7 @@ const canEditDocument = computed(() =>
                                                     document,
                                                 )
                                             "
-                                            class="text-sm text-muted-foreground hover:text-foreground"
+                                            class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                                         >
                                             Open
                                         </Link>
@@ -114,7 +243,7 @@ const canEditDocument = computed(() =>
                                                     document,
                                                 )
                                             "
-                                            class="text-sm text-muted-foreground hover:text-foreground"
+                                            class="doc-subtle text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                                         >
                                             Edit
                                         </Link>
@@ -124,32 +253,32 @@ const canEditDocument = computed(() =>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </DocumentExperienceSurface>
 
             <div
                 v-if="documents.last_page > 1"
-                class="flex flex-wrap items-center justify-center gap-2"
+                class="doc-fade-up doc-delay-2 mt-6 flex flex-wrap items-center justify-center gap-2"
             >
                 <template v-for="link in documents.links" :key="link.label">
                     <Link
                         v-if="link.url"
                         :href="link.url"
-                        class="rounded-md px-3 py-1.5 text-sm transition"
+                        class="rounded-full border border-[var(--doc-border)]/70 px-3 py-1.5 text-sm transition"
                         :class="
                             link.active
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                                ? 'bg-[var(--doc-seal)] text-white'
+                                : 'bg-[var(--doc-paper)] text-[var(--doc-muted)] hover:text-[var(--doc-ink)]'
                         "
                     >
                         <span v-html="link.label" />
                     </Link>
                     <span
                         v-else
-                        class="px-3 py-1.5 text-sm text-muted-foreground/50"
+                        class="px-3 py-1.5 text-sm text-[var(--doc-muted)]/50"
                         v-html="link.label"
                     />
                 </template>
             </div>
-        </div>
+        </DocumentExperienceFrame>
     </AppLayout>
 </template>

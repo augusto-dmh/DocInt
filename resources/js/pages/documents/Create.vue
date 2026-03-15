@@ -1,17 +1,70 @@
 <script setup lang="ts">
-import { Form, Head, Link } from '@inertiajs/vue3';
-import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
+import DocumentEmptyState from '@/components/documents/DocumentEmptyState.vue';
+import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
+import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import UploadDropzone from '@/components/UploadDropzone.vue';
+import UploadProgressTracker from '@/components/UploadProgressTracker.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type { BreadcrumbItem, Matter } from '@/types';
+import type {
+    BreadcrumbItem,
+    DocumentExperienceGuardrails,
+    Matter,
+} from '@/types';
+import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 const props = defineProps<{
     matter: Matter;
+    documentExperience: DocumentExperienceGuardrails;
 }>();
+
+const canCreateDocuments =
+    usePage().props.auth.permissions.includes('create documents');
+
+const form = useForm<{
+    title: string;
+    file: File | null;
+}>({
+    title: '',
+    file: null,
+});
+
+const selectedFile = ref<File | null>(null);
+
+const uploadItems = computed(() => {
+    if (!selectedFile.value) {
+        return [];
+    }
+
+    const hasFileError = Boolean(form.errors.file);
+
+    return [
+        {
+            name: selectedFile.value.name,
+            size: selectedFile.value.size,
+            progress: form.processing
+                ? (form.progress?.percentage ?? 18)
+                : form.wasSuccessful
+                  ? 100
+                  : 12,
+            status: form.processing
+                ? 'uploading'
+                : hasFileError
+                  ? 'failed'
+                  : form.wasSuccessful
+                    ? 'completed'
+                    : 'uploading',
+        },
+    ];
+});
+
+const hasValidationErrors = computed(() => Object.keys(form.errors).length > 0);
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -26,57 +79,142 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: 'Upload Document',
     },
 ];
+
+function onFileSelected(file: File): void {
+    selectedFile.value = file;
+    form.file = file;
+}
+
+function onFileCleared(): void {
+    selectedFile.value = null;
+    form.file = null;
+}
+
+function submit(): void {
+    if (!canCreateDocuments || !form.file) {
+        return;
+    }
+
+    form.submit(DocumentController.store(props.matter), {
+        forceFormData: true,
+        preserveScroll: true,
+    });
+}
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="Upload Document" />
 
-        <div
-            class="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 rounded-xl p-4"
+        <DocumentExperienceFrame
+            :document-experience="documentExperience"
+            eyebrow="Matter archive"
+            title="Upload legal document"
         >
-            <div class="space-y-2">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Upload Document
-                </h1>
-                <p class="text-sm text-muted-foreground">
-                    Add a document to {{ matter.title }} for the active tenant.
-                </p>
-            </div>
+            <template #description>
+                Add supporting files to <strong>{{ matter.title }}</strong> with
+                private storage and audit tracking.
+            </template>
 
-            <div class="rounded-xl border border-sidebar-border/70 p-6">
-                <Form
-                    v-bind="DocumentController.store.form(matter)"
-                    v-slot="{ errors, processing }"
-                    class="space-y-6"
+            <DocumentEmptyState
+                v-if="hasValidationErrors"
+                :document-experience="documentExperience"
+                title="Upload needs attention"
+                description="Resolve the highlighted fields before submitting this file to the archive."
+                class="doc-fade-up doc-delay-1 mt-6"
+            />
+
+            <DocumentExperienceSurface
+                :document-experience="documentExperience"
+                :delay="1"
+                class="mt-6 p-6 sm:p-8"
+            >
+                <form
+                    class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+                    @submit.prevent="submit"
                 >
-                    <div class="grid gap-2">
-                        <Label for="title">Title</Label>
-                        <Input
-                            id="title"
-                            name="title"
-                            required
-                            placeholder="Document title"
-                        />
-                        <InputError :message="errors.title" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="file">File</Label>
-                        <Input id="file" type="file" name="file" required />
-                        <InputError :message="errors.file" />
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-3">
-                        <Button :disabled="processing">Upload Document</Button>
-                        <Button as-child variant="outline">
-                            <Link :href="MatterController.show(matter)"
-                                >Cancel</Link
+                    <div class="space-y-6">
+                        <div class="grid gap-2">
+                            <Label
+                                for="title"
+                                class="doc-title text-sm font-semibold"
                             >
-                        </Button>
+                                Document title
+                            </Label>
+                            <Input
+                                id="title"
+                                v-model="form.title"
+                                name="title"
+                                required
+                                autocomplete="off"
+                                placeholder="e.g. Retainer agreement"
+                                class="border-[var(--doc-border)] bg-card"
+                            />
+                            <InputError :message="form.errors.title" />
+                        </div>
+
+                        <div class="grid gap-2">
+                            <Label class="doc-title text-sm font-semibold">
+                                File
+                            </Label>
+                            <UploadDropzone
+                                :document-experience="documentExperience"
+                                :disabled="form.processing"
+                                :server-error="form.errors.file"
+                                @file-selected="onFileSelected"
+                                @file-cleared="onFileCleared"
+                            />
+                            <UploadProgressTracker
+                                :document-experience="documentExperience"
+                                :items="uploadItems"
+                            />
+                        </div>
                     </div>
-                </Form>
-            </div>
-        </div>
+
+                    <div class="space-y-6">
+                        <div
+                            class="rounded-xl border border-[var(--doc-border)] bg-card/80 p-4"
+                        >
+                            <p
+                                class="doc-seal text-xs font-semibold tracking-[0.12em] uppercase"
+                            >
+                                Matter context
+                            </p>
+                            <p class="doc-title mt-2 text-base font-semibold">
+                                {{ matter.title }}
+                            </p>
+                            <p class="doc-subtle mt-2 text-sm leading-6">
+                                The file will be stored for the active tenant
+                                and linked to this matter workspace.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-3">
+                            <Button
+                                type="submit"
+                                :disabled="
+                                    form.processing ||
+                                    !canCreateDocuments ||
+                                    !form.file
+                                "
+                                class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
+                            >
+                                {{
+                                    form.processing
+                                        ? 'Uploading...'
+                                        : 'Upload Document'
+                                }}
+                            </Button>
+
+                            <Button as-child type="button" variant="outline">
+                                <Link :href="MatterController.show(matter)">
+                                    Back to matter
+                                </Link>
+                            </Button>
+                        </div>
+                    </div>
+                </form>
+            </DocumentExperienceSurface>
+        </DocumentExperienceFrame>
     </AppLayout>
 </template>
