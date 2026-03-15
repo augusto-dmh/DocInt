@@ -84,3 +84,30 @@ export type PaginatedData<T> = {
         active: boolean;
     }[];
 };
+
+export type QueueHealthQueue = {
+    name: string;
+    pipeline: string;
+    messages: number;
+    messages_ready: number;
+    messages_unacknowledged: number;
+    consumers: number;
+    state: string;
+    is_dead_letter: boolean;
+};
+
+export type QueueHealthSummary = {
+    total_messages: number;
+    total_ready: number;
+    total_unacked: number;
+    total_consumers: number;
+    dead_letter_messages: number;
+};
+
+export type QueueHealthSnapshot = {
+    available: boolean;
+    generated_at: string;
+    queues: QueueHealthQueue[];
+    summary: QueueHealthSummary;
+    error: string | null;
+};

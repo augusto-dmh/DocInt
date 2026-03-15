@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import {
+    Activity,
     Briefcase,
     FileText,
     LayoutGrid,
     Settings,
     Users,
 } from 'lucide-vue-next';
+import QueueHealthController from '@/actions/App/Http/Controllers/Admin/QueueHealthController';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
 import {
@@ -30,6 +32,9 @@ const page = usePage();
 const tenantContext = page.props.tenantContext as
     | { activeTenant?: { name: string } | null }
     | undefined;
+const isSuperAdmin = Boolean(
+    (page.props.auth as { isSuperAdmin?: boolean } | undefined)?.isSuperAdmin,
+);
 
 const mainNavItems: NavItem[] = [
     {
@@ -52,6 +57,15 @@ const mainNavItems: NavItem[] = [
         href: documentsIndex(),
         icon: FileText,
     },
+    ...(isSuperAdmin
+        ? [
+              {
+                  title: 'Queue Health',
+                  href: QueueHealthController(),
+                  icon: Activity,
+              },
+          ]
+        : []),
     {
         title: 'Settings',
         href: editProfile(),

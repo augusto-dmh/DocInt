@@ -36,7 +36,9 @@ COPY --from=composer:2.8.12 /usr/bin/composer /usr/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-docintern.ini
 
 RUN groupadd -g "${GROUP_ID}" docintern \
-    && useradd -u "${USER_ID}" -g docintern -m -s /bin/bash docintern
+    && useradd -u "${USER_ID}" -g docintern -m -s /bin/bash docintern \
+    && sed -i 's/^user = .*/user = docintern/' /usr/local/etc/php-fpm.d/www.conf \
+    && sed -i 's/^group = .*/group = docintern/' /usr/local/etc/php-fpm.d/www.conf
 
 WORKDIR /var/www/html
 

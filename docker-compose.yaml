@@ -1,3 +1,19 @@
+x-php-env: &php-env
+  DB_HOST: mysql
+  DB_PORT: 3306
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: docintern
+  RABBITMQ_PASSWORD: secret
+  RABBITMQ_VHOST: /docintern
+  FILESYSTEM_DISK: s3
+  QUEUE_CONNECTION: rabbitmq
+  PROCESSING_QUEUE_CONNECTION: rabbitmq
+  PROCESSING_OCR_PROVIDER: openai
+  PROCESSING_CLASSIFICATION_PROVIDER: openai
+
 services:
   app:
     build:
@@ -8,6 +24,19 @@ services:
     volumes:
       - ./:/var/www/html
       - vendor_data:/var/www/html/vendor
+    environment:
+      <<: *php-env
+      SESSION_DRIVER: redis
+      CACHE_STORE: redis
+      RABBITMQ_MANAGEMENT_SCHEME: http
+      RABBITMQ_MANAGEMENT_HOST: rabbitmq
+      RABBITMQ_MANAGEMENT_PORT: 15672
+      RABBITMQ_MANAGEMENT_USER: docintern
+      RABBITMQ_MANAGEMENT_PASSWORD: secret
+      RABBITMQ_MANAGEMENT_VHOST: /docintern
+      RABBITMQ_MANAGEMENT_TIMEOUT: 5
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
     command: >
       sh -lc "
       mkdir -p vendor bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/testing storage/framework/views storage/logs &&
@@ -129,17 +158,19 @@ services:
       - docintern
 
   rabbitmq:
-    image: rabbitmq:3.13-management
+    image: rabbitmq:3.13-management-alpine
     container_name: docintern-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: docintern
+      RABBITMQ_DEFAULT_PASS: secret
       RABBITMQ_DEFAULT_VHOST: /docintern
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq_management load_definitions "/etc/rabbitmq/definitions.json"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+      - ./docker/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
@@ -161,6 +192,52 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - docintern
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/workers/Dockerfile
+    container_name: docintern-worker
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    environment:
+      <<: *php-env
+    depends_on:
+      app:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - docintern
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/scheduler/Dockerfile
+    container_name: docintern-scheduler
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    environment:
+      <<: *php-env
+    depends_on:
+      app:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - docintern
 

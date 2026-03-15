@@ -1,0 +1,228 @@
+{
+  "users": [
+    {
+      "name": "docintern",
+      "password_hash": "15f0cBVPmalTwPG+z6JSroKFIBG88NpeWv9xMAKJBlgl9aOK",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": [
+        "administrator"
+      ],
+      "limits": {}
+    }
+  ],
+  "vhosts": [
+    {
+      "name": "/docintern"
+    }
+  ],
+  "permissions": [
+    {
+      "user": "docintern",
+      "vhost": "/docintern",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "docintern.upload",
+      "vhost": "/docintern",
+      "type": "fanout",
+      "durable": true,
+      "auto_delete": false
+    },
+    {
+      "name": "docintern.processing",
+      "vhost": "/docintern",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    },
+    {
+      "name": "docintern.notifications",
+      "vhost": "/docintern",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false
+    },
+    {
+      "name": "docintern.dlx",
+      "vhost": "/docintern",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false
+    }
+  ],
+  "queues": [
+    {
+      "name": "queue.virus-scan",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.virus-scan"
+      }
+    },
+    {
+      "name": "queue.audit-log",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.audit-log"
+      }
+    },
+    {
+      "name": "queue.ocr-extraction",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.ocr-extraction"
+      }
+    },
+    {
+      "name": "queue.classify.contract",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.classify"
+      }
+    },
+    {
+      "name": "queue.classify.tax",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.classify"
+      }
+    },
+    {
+      "name": "queue.classify.invoice",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.classify"
+      }
+    },
+    {
+      "name": "queue.classify.general",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.classify"
+      }
+    },
+    {
+      "name": "queue.notify.email",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.notify"
+      }
+    },
+    {
+      "name": "queue.notify.inapp",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "docintern.dlx",
+        "x-dead-letter-routing-key": "dlq.notify"
+      }
+    },
+    {
+      "name": "queue.dead-letters",
+      "vhost": "/docintern",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "docintern.upload",
+      "vhost": "/docintern",
+      "destination": "queue.virus-scan",
+      "destination_type": "queue",
+      "routing_key": ""
+    },
+    {
+      "source": "docintern.upload",
+      "vhost": "/docintern",
+      "destination": "queue.audit-log",
+      "destination_type": "queue",
+      "routing_key": ""
+    },
+    {
+      "source": "docintern.upload",
+      "vhost": "/docintern",
+      "destination": "queue.ocr-extraction",
+      "destination_type": "queue",
+      "routing_key": ""
+    },
+    {
+      "source": "docintern.processing",
+      "vhost": "/docintern",
+      "destination": "queue.classify.contract",
+      "destination_type": "queue",
+      "routing_key": "doc.contract.#"
+    },
+    {
+      "source": "docintern.processing",
+      "vhost": "/docintern",
+      "destination": "queue.classify.tax",
+      "destination_type": "queue",
+      "routing_key": "doc.tax.#"
+    },
+    {
+      "source": "docintern.processing",
+      "vhost": "/docintern",
+      "destination": "queue.classify.invoice",
+      "destination_type": "queue",
+      "routing_key": "doc.invoice.#"
+    },
+    {
+      "source": "docintern.processing",
+      "vhost": "/docintern",
+      "destination": "queue.classify.general",
+      "destination_type": "queue",
+      "routing_key": "doc.general.#"
+    },
+    {
+      "source": "docintern.notifications",
+      "vhost": "/docintern",
+      "destination": "queue.notify.email",
+      "destination_type": "queue",
+      "routing_key": "notify.email.#"
+    },
+    {
+      "source": "docintern.notifications",
+      "vhost": "/docintern",
+      "destination": "queue.notify.inapp",
+      "destination_type": "queue",
+      "routing_key": "notify.inapp.#"
+    },
+    {
+      "source": "docintern.dlx",
+      "vhost": "/docintern",
+      "destination": "queue.dead-letters",
+      "destination_type": "queue",
+      "routing_key": "#"
+    }
+  ]
+}
