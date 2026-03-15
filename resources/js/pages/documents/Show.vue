@@ -6,9 +6,9 @@ import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue'
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type {
-    AuditActivity,
     BreadcrumbItem,
     Document,
+    DocumentActivity,
     DocumentExperienceGuardrails,
     Matter,
 } from '@/types';
@@ -17,7 +17,7 @@ import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 const props = defineProps<{
     document: Document & { matter: Matter };
-    recentActivity: AuditActivity[];
+    recentActivity: DocumentActivity[];
     documentExperience: DocumentExperienceGuardrails;
 }>();
 

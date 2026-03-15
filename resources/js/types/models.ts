@@ -1,3 +1,5 @@
+import { type User } from './auth';
+
 export type Client = {
     id: number;
     tenant_id: string;
@@ -45,21 +47,14 @@ export type Document = {
     created_at: string;
     updated_at: string;
     matter?: Matter;
-    uploader?: {
-        id: number;
-        name: string;
-        email: string;
-    } | null;
+    uploader?: User | null;
 };
 
-export type AuditActivity = {
+export type DocumentActivity = {
     id: number;
     action: string;
     created_at: string;
-    user: {
-        id: number;
-        name: string;
-    } | null;
+    user: Pick<User, 'id' | 'name'> | null;
     ip_address: string | null;
 };
 

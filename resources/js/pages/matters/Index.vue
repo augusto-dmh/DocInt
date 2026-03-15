@@ -4,10 +4,16 @@ import { computed } from 'vue';
 import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type { BreadcrumbItem, Matter, PaginatedData } from '@/types';
+import type {
+    BreadcrumbItem,
+    DocumentExperienceGuardrails,
+    Matter,
+    PaginatedData,
+} from '@/types';
 
 defineProps<{
     matters: PaginatedData<Matter>;
+    documentExperience: DocumentExperienceGuardrails;
 }>();
 
 const breadcrumbItems: BreadcrumbItem[] = [
