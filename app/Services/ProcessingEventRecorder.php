@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\DocumentStatus;
 use App\Models\Document;
 use App\Models\ProcessingEvent;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 class ProcessingEventRecorder
@@ -22,21 +23,28 @@ class ProcessingEventRecorder
         ?string $traceId = null,
         ?array $metadata = null,
     ): ProcessingEvent {
-        return ProcessingEvent::query()->firstOrCreate(
-            [
-                'tenant_id' => $document->tenant_id,
-                'message_id' => $messageId,
-                'consumer_name' => $consumerName,
-            ],
-            [
-                'document_id' => $document->id,
-                'trace_id' => $this->resolveTraceId($document, $traceId),
-                'event' => $event,
-                'status_from' => $this->resolveStatusValue($statusFrom),
-                'status_to' => $this->resolveStatusValue($statusTo),
-                'metadata' => $metadata,
-            ],
-        );
+        $uniqueKey = [
+            'tenant_id' => $document->tenant_id,
+            'message_id' => $messageId,
+            'consumer_name' => $consumerName,
+        ];
+
+        try {
+            return ProcessingEvent::query()->firstOrCreate(
+                $uniqueKey,
+                [
+                    'document_id' => $document->id,
+                    'trace_id' => $this->resolveTraceId($document, $traceId),
+                    'event' => $event,
+                    'status_from' => $this->resolveStatusValue($statusFrom),
+                    'status_to' => $this->resolveStatusValue($statusTo),
+                    'metadata' => $metadata,
+                ],
+            );
+        } catch (UniqueConstraintViolationException) {
+            /** @var ProcessingEvent */
+            return ProcessingEvent::query()->where($uniqueKey)->firstOrFail();
+        }
     }
 
     protected function resolveTraceId(Document $document, ?string $traceId): string
