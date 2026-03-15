@@ -23,6 +23,7 @@ class Document extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'tenant_id',
         'matter_id',
         'uploaded_by',
         'title',
