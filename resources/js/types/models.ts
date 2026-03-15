@@ -31,7 +31,18 @@ export type Matter = {
     documents?: Document[];
 };
 
-export type DocumentStatus = 'uploaded' | 'ready_for_review' | 'approved';
+export type DocumentStatus =
+    | 'uploaded'
+    | 'scanning'
+    | 'scan_passed'
+    | 'extracting'
+    | 'classifying'
+    | 'ready_for_review'
+    | 'reviewed'
+    | 'approved'
+    | 'scan_failed'
+    | 'extraction_failed'
+    | 'classification_failed';
 
 export type Document = {
     id: number;
@@ -44,6 +55,7 @@ export type Document = {
     mime_type: string | null;
     file_size: number;
     status: DocumentStatus;
+    processing_trace_id: string | null;
     created_at: string;
     updated_at: string;
     matter?: Matter;

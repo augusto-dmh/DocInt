@@ -73,6 +73,41 @@ return [
             'after_commit' => false,
         ],
 
+        'rabbitmq' => [
+            'driver' => 'rabbitmq',
+            'queue' => env('RABBITMQ_QUEUE', 'default'),
+            'connection' => env('RABBITMQ_CONNECTION', 'default'),
+            'hosts' => [
+                [
+                    'host' => env('RABBITMQ_HOST', 'rabbitmq'),
+                    'port' => (int) env('RABBITMQ_PORT', 5672),
+                    'user' => env('RABBITMQ_USER', 'guest'),
+                    'password' => env('RABBITMQ_PASSWORD', 'guest'),
+                    'vhost' => env('RABBITMQ_VHOST', '/docintern'),
+                ],
+            ],
+            'options' => [
+                'queue' => [
+                    'exchange' => env('RABBITMQ_EXCHANGE', ''),
+                    'exchange_type' => env('RABBITMQ_EXCHANGE_TYPE', 'direct'),
+                    'exchange_routing_key' => env('RABBITMQ_ROUTING_KEY', ''),
+                    'prioritize_delayed' => false,
+                    'queue_max_priority' => 10,
+                    'reroute_failed' => true,
+                    'failed_exchange' => env('RABBITMQ_FAILED_EXCHANGE', 'docintern.dlx'),
+                    'failed_routing_key' => env('RABBITMQ_FAILED_ROUTING_KEY', 'dlq.%s'),
+                ],
+                'ssl_options' => [
+                    'cafile' => env('RABBITMQ_SSL_CAFILE'),
+                    'local_cert' => env('RABBITMQ_SSL_LOCALCERT'),
+                    'local_key' => env('RABBITMQ_SSL_LOCALKEY'),
+                    'verify_peer' => (bool) env('RABBITMQ_SSL_VERIFY_PEER', true),
+                    'passphrase' => env('RABBITMQ_SSL_PASSPHRASE'),
+                ],
+            ],
+            'worker' => env('RABBITMQ_WORKER', 'default'),
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\DocumentStatus;
+use App\Events\DocumentProcessingEvent;
 use App\Models\Document;
 use App\Models\Matter;
 use App\Models\User;
@@ -16,9 +18,15 @@ class DocumentUploadService
 {
     protected const string PENDING_FILE_PATH = 'pending';
 
+    public function __construct(
+        protected ProcessingEventRecorder $processingEventRecorder,
+    ) {}
+
     public function upload(UploadedFile $file, Matter $matter, User $user, string $title): Document
     {
-        $document = DB::transaction(function () use ($file, $matter, $user, $title): Document {
+        $traceId = (string) Str::uuid();
+
+        $document = DB::transaction(function () use ($file, $matter, $traceId, $title, $user): Document {
             $document = Document::query()->create([
                 'tenant_id' => $matter->tenant_id,
                 'matter_id' => $matter->id,
@@ -28,7 +36,8 @@ class DocumentUploadService
                 'file_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getMimeType() ?? $file->getClientMimeType(),
                 'file_size' => $file->getSize() ?? 0,
-                'status' => 'uploaded',
+                'status' => DocumentStatus::Uploaded,
+                'processing_trace_id' => $traceId,
             ]);
 
             $document->auditLogs()->create([
@@ -66,7 +75,49 @@ class DocumentUploadService
         }
 
         try {
-            $document->update(['file_path' => $storedPath]);
+            /**
+             * @var array{
+             *     document: Document,
+             *     message_id: string,
+             *     trace_id: string,
+             *     metadata: array{
+             *         original_filename: string,
+             *         mime_type: string|null,
+             *         size_bytes: int,
+             *         uploaded_by_user_id: int
+             *     }
+             * } $uploadResult
+             */
+            $uploadResult = DB::transaction(function () use ($document, $storedPath, $user): array {
+                $messageId = (string) Str::uuid();
+
+                $document->update(['file_path' => $storedPath]);
+
+                $metadata = [
+                    'original_filename' => $document->file_name,
+                    'mime_type' => $document->mime_type,
+                    'size_bytes' => $document->file_size,
+                    'uploaded_by_user_id' => $user->id,
+                ];
+
+                $processingEvent = $this->processingEventRecorder->record(
+                    $document,
+                    $messageId,
+                    'upload-dispatch',
+                    'document.uploaded',
+                    null,
+                    DocumentStatus::Uploaded,
+                    $document->processing_trace_id,
+                    $metadata,
+                );
+
+                return [
+                    'document' => $document,
+                    'message_id' => $messageId,
+                    'trace_id' => $processingEvent->trace_id,
+                    'metadata' => $metadata,
+                ];
+            });
         } catch (Throwable $throwable) {
             Storage::disk('s3')->delete($storedPath);
             $this->deletePendingDocumentRecord($document);
@@ -74,7 +125,22 @@ class DocumentUploadService
             throw $throwable;
         }
 
-        return $document->fresh(['matter', 'uploader']);
+        /** @var Document $freshDocument */
+        $freshDocument = $uploadResult['document']->fresh(['matter', 'uploader']);
+        $uploadResult['document'] = $freshDocument;
+
+        event(new DocumentProcessingEvent(
+            messageId: $uploadResult['message_id'],
+            traceId: $uploadResult['trace_id'],
+            tenantId: $uploadResult['document']->tenant_id,
+            documentId: $uploadResult['document']->id,
+            event: 'document.uploaded',
+            timestamp: now()->toImmutable(),
+            metadata: $uploadResult['metadata'],
+            retryCount: 0,
+        ));
+
+        return $uploadResult['document'];
     }
 
     public function generatePresignedUrl(Document $document, int $ttlMinutes = 15): string
