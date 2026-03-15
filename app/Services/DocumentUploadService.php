@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DocumentStatus;
 use App\Events\DocumentProcessingEvent;
+use App\Events\DocumentStatusUpdated;
 use App\Models\Document;
 use App\Models\Matter;
 use App\Models\User;
@@ -138,6 +139,13 @@ class DocumentUploadService
             timestamp: now()->toImmutable(),
             metadata: $uploadResult['metadata'],
             retryCount: 0,
+        ));
+
+        event(new DocumentStatusUpdated(
+            document: $uploadResult['document'],
+            fromStatus: null,
+            toStatus: DocumentStatus::Uploaded->value,
+            traceId: $uploadResult['trace_id'],
         ));
 
         return $uploadResult['document'];

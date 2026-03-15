@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DocumentStatus;
 use App\Events\DocumentProcessingEvent;
+use App\Events\DocumentStatusUpdated;
 use App\Models\Document;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -114,6 +115,13 @@ class DocumentStatusTransitionService
             timestamp: now()->toImmutable(),
             metadata: $transitionResult['metadata'],
             retryCount: 0,
+        ));
+
+        event(new DocumentStatusUpdated(
+            document: $transitionResult['document'],
+            fromStatus: $transitionResult['metadata']['from_status'] ?? null,
+            toStatus: $transitionResult['metadata']['to_status'] ?? $resolvedToStatus->value,
+            traceId: $transitionResult['trace_id'],
         ));
 
         return $transitionResult['document'];
