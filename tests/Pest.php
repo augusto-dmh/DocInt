@@ -41,7 +41,29 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function tenantContextSessionKey(): string
 {
-    // ..
+    return config('tenancy.tenant_context.session_key', 'active_tenant_id');
+}
+
+function createSuperAdmin(App\Models\Tenant $tenant): App\Models\User
+{
+    $superAdmin = App\Models\User::factory()->create();
+
+    setPermissionsTeamId($tenant->id);
+    $superAdmin->assignRole('super-admin');
+    setPermissionsTeamId(null);
+
+    return $superAdmin;
+}
+
+function createTenantAdmin(App\Models\Tenant $tenant): App\Models\User
+{
+    $tenantAdmin = App\Models\User::factory()->forTenant($tenant)->create();
+
+    setPermissionsTeamId($tenant->id);
+    $tenantAdmin->assignRole('tenant-admin');
+    setPermissionsTeamId(null);
+
+    return $tenantAdmin;
 }
