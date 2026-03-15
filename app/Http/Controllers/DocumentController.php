@@ -9,6 +9,7 @@ use App\Models\Document;
 use App\Models\Matter;
 use App\Models\User;
 use App\Services\DocumentUploadService;
+use App\Support\DocumentExperienceGuardrails;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -27,6 +28,7 @@ class DocumentController extends Controller
                 ->with(['matter', 'uploader'])
                 ->latest()
                 ->paginate(15),
+            'documentExperience' => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
 
@@ -37,6 +39,7 @@ class DocumentController extends Controller
 
         return Inertia::render('documents/Create', [
             'matter' => $matter->load('client'),
+            'documentExperience' => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
 
@@ -77,6 +80,7 @@ class DocumentController extends Controller
                 ->get()
                 ->map(fn (AuditLog $auditLog): array => $this->formatAuditLog($auditLog))
                 ->values(),
+            'documentExperience' => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
 
@@ -87,6 +91,7 @@ class DocumentController extends Controller
 
         return Inertia::render('documents/Edit', [
             'document' => $document->load(['matter.client', 'uploader']),
+            'documentExperience' => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
 
