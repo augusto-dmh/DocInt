@@ -70,6 +70,24 @@ export type DocumentActivity = {
     ip_address: string | null;
 };
 
+export type DocumentProcessingActivity = {
+    id: number;
+    consumer_name: string;
+    status_from: string | null;
+    status_to: string | null;
+    event: string;
+    created_at: string;
+};
+
+export type DocumentStatusUpdatedPayload = {
+    tenant_id: string;
+    document_id: number;
+    from_status: string | null;
+    to_status: string;
+    trace_id: string | null;
+    occurred_at: string;
+};
+
 export type PaginatedData<T> = {
     data: T[];
     current_page: number;

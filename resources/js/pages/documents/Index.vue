@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
 import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentEmptyState from '@/components/documents/DocumentEmptyState.vue';
@@ -7,6 +8,7 @@ import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFr
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { useDocumentChannel } from '@/composables/useDocumentChannel';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type {
     BreadcrumbItem,
@@ -15,13 +17,16 @@ import type {
     PaginatedData,
 } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     documents: PaginatedData<Document>;
     documentExperience: DocumentExperienceGuardrails;
 }>();
 
-const permissions = usePage().props.auth.permissions;
+const page = usePage();
+const permissions = page.props.auth.permissions;
 const canEditDocuments = permissions.includes('edit documents');
+const isReloadingDocuments = ref(false);
+const hasPendingDocumentsReload = ref(false);
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -47,6 +52,37 @@ function formatFileSize(bytes: number): string {
 
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
+
+function reloadDocuments(): void {
+    if (isReloadingDocuments.value) {
+        hasPendingDocumentsReload.value = true;
+
+        return;
+    }
+
+    isReloadingDocuments.value = true;
+
+    router.reload({
+        only: ['documents'],
+        onFinish: () => {
+            isReloadingDocuments.value = false;
+
+            if (!hasPendingDocumentsReload.value) {
+                return;
+            }
+
+            hasPendingDocumentsReload.value = false;
+            reloadDocuments();
+        },
+    });
+}
+
+useDocumentChannel({
+    tenantId: page.props.tenant?.id ?? null,
+    onStatusUpdated: () => {
+        reloadDocuments();
+    },
+});
 </script>
 
 <template>
@@ -60,7 +96,7 @@ function formatFileSize(bytes: number): string {
             description="Searchable matter documents with immutable storage and traceable activity."
         >
             <DocumentEmptyState
-                v-if="documents.data.length === 0"
+                v-if="props.documents.data.length === 0"
                 :document-experience="documentExperience"
                 title="No documents archived yet"
                 description="Upload the first file from a matter workspace to start building this tenant's ledger."
@@ -83,7 +119,7 @@ function formatFileSize(bytes: number): string {
             >
                 <div class="grid gap-3 p-4 sm:p-5 md:hidden">
                     <article
-                        v-for="document in documents.data"
+                        v-for="document in props.documents.data"
                         :key="`mobile-${document.id}`"
                         class="doc-grid-line rounded-xl border p-4"
                     >
@@ -181,7 +217,7 @@ function formatFileSize(bytes: number): string {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="document in documents.data"
+                                v-for="document in props.documents.data"
                                 :key="document.id"
                                 class="doc-grid-line border-b last:border-0"
                             >
@@ -258,11 +294,14 @@ function formatFileSize(bytes: number): string {
             </DocumentExperienceSurface>
 
             <nav
-                v-if="documents.last_page > 1"
+                v-if="props.documents.last_page > 1"
                 class="doc-fade-up doc-delay-2 mt-6 flex flex-wrap items-center justify-center gap-2"
                 aria-label="Documents pagination"
             >
-                <template v-for="link in documents.links" :key="link.label">
+                <template
+                    v-for="link in props.documents.links"
+                    :key="link.label"
+                >
                     <Link
                         v-if="link.url"
                         :href="link.url"
