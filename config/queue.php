@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'default' => env('QUEUE_CONNECTION', 'database'),
+    'default' => env('QUEUE_CONNECTION', 'rabbitmq'),
 
     /*
     |--------------------------------------------------------------------------
@@ -106,6 +106,15 @@ return [
                 ],
             ],
             'worker' => env('RABBITMQ_WORKER', 'default'),
+            'management' => [
+                'scheme' => env('RABBITMQ_MANAGEMENT_SCHEME', 'http'),
+                'host' => env('RABBITMQ_MANAGEMENT_HOST', env('RABBITMQ_HOST', 'rabbitmq')),
+                'port' => (int) env('RABBITMQ_MANAGEMENT_PORT', 15672),
+                'username' => env('RABBITMQ_MANAGEMENT_USER', env('RABBITMQ_USER', 'guest')),
+                'password' => env('RABBITMQ_MANAGEMENT_PASSWORD', env('RABBITMQ_PASSWORD', 'guest')),
+                'vhost' => env('RABBITMQ_MANAGEMENT_VHOST', env('RABBITMQ_VHOST', '/docintern')),
+                'timeout_seconds' => (int) env('RABBITMQ_MANAGEMENT_TIMEOUT', 5),
+            ],
         ],
 
         'deferred' => [
