@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Stancl\Tenancy\Database\Concerns\BelongsToTenant;
 
@@ -29,6 +31,7 @@ class Document extends Model
         'mime_type',
         'file_size',
         'status',
+        'processing_trace_id',
     ];
 
     /**
@@ -54,5 +57,20 @@ class Document extends Model
     public function auditLogs(): MorphMany
     {
         return $this->morphMany(AuditLog::class, 'auditable');
+    }
+
+    public function processingEvents(): HasMany
+    {
+        return $this->hasMany(ProcessingEvent::class);
+    }
+
+    public function extractedData(): HasOne
+    {
+        return $this->hasOne(ExtractedData::class);
+    }
+
+    public function classification(): HasOne
+    {
+        return $this->hasOne(DocumentClassification::class);
     }
 }

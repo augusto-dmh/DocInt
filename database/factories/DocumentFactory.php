@@ -29,15 +29,58 @@ class DocumentFactory extends Factory
 
     public function approved(): static
     {
-        return $this->state(fn (array $attributes): array => [
-            'status' => DocumentStatus::Approved,
-        ]);
+        return $this->forStatus(DocumentStatus::Approved);
     }
 
     public function readyForReview(): static
     {
-        return $this->state(fn (array $attributes): array => [
-            'status' => DocumentStatus::ReadyForReview,
+        return $this->forStatus(DocumentStatus::ReadyForReview);
+    }
+
+    public function scanning(): static
+    {
+        return $this->forStatus(DocumentStatus::Scanning);
+    }
+
+    public function scanPassed(): static
+    {
+        return $this->forStatus(DocumentStatus::ScanPassed);
+    }
+
+    public function extracting(): static
+    {
+        return $this->forStatus(DocumentStatus::Extracting);
+    }
+
+    public function classifying(): static
+    {
+        return $this->forStatus(DocumentStatus::Classifying);
+    }
+
+    public function reviewed(): static
+    {
+        return $this->forStatus(DocumentStatus::Reviewed);
+    }
+
+    public function scanFailed(): static
+    {
+        return $this->forStatus(DocumentStatus::ScanFailed);
+    }
+
+    public function extractionFailed(): static
+    {
+        return $this->forStatus(DocumentStatus::ExtractionFailed);
+    }
+
+    public function classificationFailed(): static
+    {
+        return $this->forStatus(DocumentStatus::ClassificationFailed);
+    }
+
+    protected function forStatus(DocumentStatus $status): static
+    {
+        return $this->state(fn (): array => [
+            'status' => $status,
         ]);
     }
 }
