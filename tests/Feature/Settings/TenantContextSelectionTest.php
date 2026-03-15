@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Tenant;
-use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
@@ -12,23 +11,14 @@ beforeEach(function (): void {
 });
 
 afterEach(function (): void {
-    tenancy()->end();
     setPermissionsTeamId(null);
+    tenancy()->end();
 });
-
-function tenantContextSessionKey(): string
-{
-    $sessionKey = config('tenancy.tenant_context.session_key');
-
-    return is_string($sessionKey) && $sessionKey !== ''
-        ? $sessionKey
-        : 'active_tenant_id';
-}
 
 test('super-admin can view tenant context settings page', function (): void {
     $tenantA = Tenant::factory()->create();
     $tenantB = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenantA);
+    $superAdmin = createSuperAdmin($tenantA);
 
     $this->actingAs($superAdmin)
         ->get(route('tenant-context.edit'))
@@ -43,7 +33,7 @@ test('super-admin can view tenant context settings page', function (): void {
 
 test('non super-admin users cannot access tenant context settings page', function (): void {
     $tenant = Tenant::factory()->create();
-    $tenantAdmin = createSettingsTenantAdmin($tenant);
+    $tenantAdmin = createTenantAdmin($tenant);
 
     $this->actingAs($tenantAdmin)
         ->get(route('tenant-context.edit'))
@@ -53,7 +43,7 @@ test('non super-admin users cannot access tenant context settings page', functio
 test('super-admin can select tenant context via settings route', function (): void {
     $tenantA = Tenant::factory()->create();
     $tenantB = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenantA);
+    $superAdmin = createSuperAdmin($tenantA);
 
     $this->actingAs($superAdmin)
         ->put(route('tenant-context.update'), [
@@ -67,7 +57,7 @@ test('super-admin can select tenant context via settings route', function (): vo
 
 test('selected tenant context allows super-admin to access tenant-scoped routes', function (): void {
     $tenant = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenant);
+    $superAdmin = createSuperAdmin($tenant);
 
     $this->actingAs($superAdmin)
         ->put(route('tenant-context.update'), [
@@ -81,7 +71,7 @@ test('selected tenant context allows super-admin to access tenant-scoped routes'
 
 test('super-admin without tenant context cannot access tenant-scoped routes', function (): void {
     $tenant = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenant);
+    $superAdmin = createSuperAdmin($tenant);
 
     $this->actingAs($superAdmin)
         ->get(route('clients.index'))
@@ -90,7 +80,7 @@ test('super-admin without tenant context cannot access tenant-scoped routes', fu
 
 test('super-admin can clear tenant context and loses tenant-scoped access', function (): void {
     $tenant = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenant);
+    $superAdmin = createSuperAdmin($tenant);
 
     $this->actingAs($superAdmin)
         ->withSession([tenantContextSessionKey() => $tenant->id])
@@ -103,7 +93,7 @@ test('super-admin can clear tenant context and loses tenant-scoped access', func
 
 test('tenant context selection validates tenant id', function (): void {
     $tenant = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenant);
+    $superAdmin = createSuperAdmin($tenant);
 
     $this->actingAs($superAdmin)
         ->from(route('tenant-context.edit'))
@@ -116,7 +106,7 @@ test('tenant context selection validates tenant id', function (): void {
 
 test('shared inertia data exposes selected tenant context for super-admin', function (): void {
     $tenant = Tenant::factory()->create();
-    $superAdmin = createSettingsSuperAdminWithTeamContext($tenant);
+    $superAdmin = createSuperAdmin($tenant);
 
     $this->actingAs($superAdmin)
         ->withSession([tenantContextSessionKey() => $tenant->id])
@@ -129,25 +119,3 @@ test('shared inertia data exposes selected tenant context for super-admin', func
             ->where('tenantContext.activeTenant.slug', $tenant->slug)
         );
 });
-
-function createSettingsSuperAdminWithTeamContext(Tenant $tenant): User
-{
-    $superAdmin = User::factory()->create();
-
-    setPermissionsTeamId($tenant->id);
-    $superAdmin->assignRole('super-admin');
-    setPermissionsTeamId(null);
-
-    return $superAdmin;
-}
-
-function createSettingsTenantAdmin(Tenant $tenant): User
-{
-    $tenantAdmin = User::factory()->forTenant($tenant)->create();
-
-    setPermissionsTeamId($tenant->id);
-    $tenantAdmin->assignRole('tenant-admin');
-    setPermissionsTeamId(null);
-
-    return $tenantAdmin;
-}
