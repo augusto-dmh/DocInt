@@ -88,6 +88,20 @@ export type DocumentStatusUpdatedPayload = {
     occurred_at: string;
 };
 
+export type DashboardStats = {
+    processed_today: number;
+    pending_review: number;
+    failed: number;
+};
+
+export type DashboardRecentDocument = {
+    id: number;
+    title: string;
+    status: DocumentStatus;
+    matter_title: string | null;
+    updated_at: string;
+};
+
 export type PaginatedData<T> = {
     data: T[];
     current_page: number;
