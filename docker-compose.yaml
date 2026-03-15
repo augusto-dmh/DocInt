@@ -1,3 +1,19 @@
+x-php-env: &php-env
+  DB_HOST: mysql
+  DB_PORT: 3306
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: docintern
+  RABBITMQ_PASSWORD: secret
+  RABBITMQ_VHOST: /docintern
+  FILESYSTEM_DISK: s3
+  QUEUE_CONNECTION: rabbitmq
+  PROCESSING_QUEUE_CONNECTION: rabbitmq
+  PROCESSING_OCR_PROVIDER: openai
+  PROCESSING_CLASSIFICATION_PROVIDER: openai
+
 services:
   app:
     build:
@@ -9,17 +25,9 @@ services:
       - ./:/var/www/html
       - vendor_data:/var/www/html/vendor
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      <<: *php-env
       SESSION_DRIVER: redis
       CACHE_STORE: redis
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: docintern
-      RABBITMQ_PASSWORD: secret
-      RABBITMQ_VHOST: /docintern
       RABBITMQ_MANAGEMENT_SCHEME: http
       RABBITMQ_MANAGEMENT_HOST: rabbitmq
       RABBITMQ_MANAGEMENT_PORT: 15672
@@ -29,11 +37,6 @@ services:
       RABBITMQ_MANAGEMENT_TIMEOUT: 5
       MAIL_HOST: mailpit
       MAIL_PORT: 1025
-      FILESYSTEM_DISK: s3
-      QUEUE_CONNECTION: rabbitmq
-      PROCESSING_QUEUE_CONNECTION: rabbitmq
-      PROCESSING_OCR_PROVIDER: openai
-      PROCESSING_CLASSIFICATION_PROVIDER: openai
     command: >
       sh -lc "
       mkdir -p vendor bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/testing storage/framework/views storage/logs &&
@@ -202,20 +205,7 @@ services:
       - ./:/var/www/html
       - vendor_data:/var/www/html/vendor
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      RABBITMQ_USER: docintern
-      RABBITMQ_PASSWORD: secret
-      RABBITMQ_VHOST: /docintern
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      FILESYSTEM_DISK: s3
-      QUEUE_CONNECTION: rabbitmq
-      PROCESSING_QUEUE_CONNECTION: rabbitmq
-      PROCESSING_OCR_PROVIDER: openai
-      PROCESSING_CLASSIFICATION_PROVIDER: openai
+      <<: *php-env
     depends_on:
       app:
         condition: service_healthy
@@ -238,20 +228,7 @@ services:
       - ./:/var/www/html
       - vendor_data:/var/www/html/vendor
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      RABBITMQ_USER: docintern
-      RABBITMQ_PASSWORD: secret
-      RABBITMQ_VHOST: /docintern
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      FILESYSTEM_DISK: s3
-      QUEUE_CONNECTION: rabbitmq
-      PROCESSING_QUEUE_CONNECTION: rabbitmq
-      PROCESSING_OCR_PROVIDER: openai
-      PROCESSING_CLASSIFICATION_PROVIDER: openai
+      <<: *php-env
     depends_on:
       app:
         condition: service_healthy
