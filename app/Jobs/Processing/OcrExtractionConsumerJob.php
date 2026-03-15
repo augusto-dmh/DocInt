@@ -47,6 +47,8 @@ class OcrExtractionConsumerJob implements ShouldQueue
         OcrProvider $ocrProvider,
         ClassificationRoutingResolver $classificationRoutingResolver,
     ): void {
+        $this->assertValidMessageId();
+
         $documentId = $this->resolveDocumentId();
         $tenantId = $this->resolveTenantId();
         $messageId = $this->resolveMessageId();

@@ -47,6 +47,8 @@ class ClassificationConsumerJob implements ShouldQueue
         ClassificationProvider $classificationProvider,
         ClassificationRoutingResolver $classificationRoutingResolver,
     ): void {
+        $this->assertValidMessageId();
+
         $documentId = $this->resolveDocumentId();
         $tenantId = $this->resolveTenantId();
         $messageId = $this->resolveMessageId();

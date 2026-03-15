@@ -66,6 +66,23 @@ function runJobAndTriggerFailedHook(object $job): void
     }
 }
 
+test('consumer rejects payload without a valid message_id and sends it to DLQ', function (): void {
+    Queue::fake();
+
+    $document = createFailureDocument('uploaded', 'no-message-id.pdf');
+    $payload = failurePayload($document);
+    unset($payload['message_id']);
+
+    runJobAndTriggerFailedHook(new VirusScanConsumerJob($payload));
+
+    $deadLetterJob = Queue::pushed(DeadLetterConsumerJob::class)->first();
+
+    expect($deadLetterJob)->toBeInstanceOf(DeadLetterConsumerJob::class)
+        ->and($deadLetterJob->payload['metadata']['failure_reason'] ?? null)->toContain('message_id');
+
+    expect($document->fresh()->status->value)->toBe('uploaded');
+});
+
 test('ocr failures are dead lettered and move document to extraction failed', function (): void {
     Queue::fake();
     Http::fake([

@@ -40,6 +40,8 @@ class VirusScanConsumerJob implements ShouldQueue
         DocumentStatusTransitionService $transitionService,
         ProcessingEventRecorder $processingEventRecorder,
     ): void {
+        $this->assertValidMessageId();
+
         $documentId = $this->resolveDocumentId();
         $tenantId = $this->resolveTenantId();
         $messageId = $this->resolveMessageId();

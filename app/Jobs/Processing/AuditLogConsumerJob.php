@@ -34,6 +34,8 @@ class AuditLogConsumerJob implements ShouldQueue
 
     public function handle(ProcessingEventRecorder $processingEventRecorder): void
     {
+        $this->assertValidMessageId();
+
         $documentId = $this->resolveDocumentId();
         $tenantId = $this->resolveTenantId();
         $messageId = $this->resolveMessageId();

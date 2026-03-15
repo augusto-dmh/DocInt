@@ -64,6 +64,20 @@ trait InteractsWithProcessingPayload
             : (string) Str::uuid();
     }
 
+    /**
+     * Asserts that the payload contains a valid UUID message_id before any processing begins.
+     * Without a stable message_id the per-consumer idempotency check cannot function correctly,
+     * so a missing or malformed value is treated as a fatal payload error and sent to the DLQ.
+     */
+    protected function assertValidMessageId(): void
+    {
+        $messageId = (string) ($this->payload['message_id'] ?? '');
+
+        if (! Str::isUuid($messageId)) {
+            throw new \RuntimeException('Pipeline payload is missing a valid message_id; idempotency cannot be guaranteed.');
+        }
+    }
+
     protected function resolveTraceId(): string
     {
         $traceId = (string) ($this->payload['trace_id'] ?? '');
