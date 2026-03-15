@@ -99,6 +99,7 @@ test('dashboard shares tenant scoped stats and recent documents', function (): v
             ->where('recentDocuments.0.title', 'Latest upload')
             ->where('recentDocuments.0.status', 'uploaded')
             ->where('recentDocuments.0.matter_title', $matter->title)
+            ->has('recentDocuments.0.updated_at')
             ->where('recentDocuments.1.id', $pendingReviewDocument->id)
             ->where('recentDocuments.1.status', 'ready_for_review')
             ->where('recentDocuments.2.id', $reviewedDocument->id)
