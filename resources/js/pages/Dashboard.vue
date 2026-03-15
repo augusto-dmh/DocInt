@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ArrowRight, Briefcase, FileText, Users } from 'lucide-vue-next';
+import { ref } from 'vue';
 import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
+import { useDocumentChannel } from '@/composables/useDocumentChannel';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { index as clientsIndex } from '@/routes/clients';
@@ -22,6 +24,8 @@ const props = defineProps<{
 
 const page = usePage();
 const tenant = page.props.tenant;
+const isReloadingDashboard = ref(false);
+const hasPendingDashboardReload = ref(false);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -59,6 +63,37 @@ function formatUpdatedAt(value: string): string {
         minute: '2-digit',
     }).format(new Date(value));
 }
+
+function reloadDashboardSnapshot(): void {
+    if (isReloadingDashboard.value) {
+        hasPendingDashboardReload.value = true;
+
+        return;
+    }
+
+    isReloadingDashboard.value = true;
+
+    router.reload({
+        only: ['stats', 'recentDocuments'],
+        onFinish: () => {
+            isReloadingDashboard.value = false;
+
+            if (! hasPendingDashboardReload.value) {
+                return;
+            }
+
+            hasPendingDashboardReload.value = false;
+            reloadDashboardSnapshot();
+        },
+    });
+}
+
+useDocumentChannel({
+    tenantId: props.realtimeTenantId,
+    onStatusUpdated: () => {
+        reloadDashboardSnapshot();
+    },
+});
 </script>
 
 <template>
