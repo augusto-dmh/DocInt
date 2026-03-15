@@ -7,7 +7,7 @@ import { edit as editProfile } from '@/routes/profile';
 import { edit as editTenantContext } from '@/routes/tenant-context';
 import { show } from '@/routes/two-factor';
 import { edit as editPassword } from '@/routes/user-password';
-import { type NavItem } from '@/types';
+import type { NavItem } from '@/types';
 
 const page = usePage();
 const sidebarNavItems = computed<NavItem[]>(() => {

@@ -13,10 +13,10 @@ import { Label } from '@/components/ui/label';
 import UploadDropzone from '@/components/UploadDropzone.vue';
 import UploadProgressTracker from '@/components/UploadProgressTracker.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
-import {
-    type BreadcrumbItem,
-    type DocumentExperienceGuardrails,
-    type Matter,
+import type {
+    BreadcrumbItem,
+    DocumentExperienceGuardrails,
+    Matter,
 } from '@/types';
 
 const props = defineProps<{

@@ -7,11 +7,11 @@ import DocumentExperienceSurface from '@/components/documents/DocumentExperience
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { matterStatusToneClass } from '@/lib/document-experience';
-import {
-    type BreadcrumbItem,
-    type DocumentExperienceGuardrails,
-    type Matter,
-    type PaginatedData,
+import type {
+    BreadcrumbItem,
+    DocumentExperienceGuardrails,
+    Matter,
+    PaginatedData,
 } from '@/types';
 
 defineProps<{
@@ -129,9 +129,7 @@ function matterStatusClass(status: Matter['status']): string {
                 <div class="hidden overflow-x-auto md:block">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr
-                                class="doc-grid-line border-b bg-muted/75"
-                            >
+                            <tr class="doc-grid-line border-b bg-muted/75">
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
                                 >

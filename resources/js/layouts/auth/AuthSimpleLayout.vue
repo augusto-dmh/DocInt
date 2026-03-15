@@ -25,9 +25,7 @@ const appName = usePage().props.name ?? 'Docintern';
                 >
                     <AppLogoIcon class="size-4 fill-current" />
                 </span>
-                <span
-                    class="doc-title text-base font-semibold text-foreground"
-                >
+                <span class="doc-title text-base font-semibold text-foreground">
                     {{ appName }}
                 </span>
             </Link>

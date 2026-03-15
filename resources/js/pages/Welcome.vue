@@ -18,9 +18,7 @@ withDefaults(
 <template>
     <Head title="Welcome" />
 
-    <div
-        class="min-h-screen bg-background p-6 text-foreground lg:p-10"
-    >
+    <div class="min-h-screen bg-background p-6 text-foreground lg:p-10">
         <div class="mx-auto flex max-w-6xl flex-col gap-8">
             <header class="flex items-center justify-between">
                 <p class="doc-title text-2xl font-semibold">{{ appName }}</p>

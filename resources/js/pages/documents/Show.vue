@@ -7,11 +7,11 @@ import DocumentExperienceSurface from '@/components/documents/DocumentExperience
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import {
-    type BreadcrumbItem,
-    type Document,
-    type DocumentActivity,
-    type DocumentExperienceGuardrails,
+import type {
+    BreadcrumbItem,
+    Document,
+    DocumentActivity,
+    DocumentExperienceGuardrails,
 } from '@/types';
 
 const props = defineProps<{

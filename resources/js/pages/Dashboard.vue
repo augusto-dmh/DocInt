@@ -6,7 +6,7 @@ import { dashboard } from '@/routes';
 import { index as clientsIndex } from '@/routes/clients';
 import { index as documentsIndex } from '@/routes/documents';
 import { index as mattersIndex } from '@/routes/matters';
-import { type BreadcrumbItem } from '@/types';
+import type { BreadcrumbItem } from '@/types';
 
 const page = usePage();
 const tenant = page.props.tenant;

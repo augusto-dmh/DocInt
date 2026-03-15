@@ -8,11 +8,11 @@ import DocumentExperienceSurface from '@/components/documents/DocumentExperience
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import {
-    type BreadcrumbItem,
-    type Document,
-    type DocumentExperienceGuardrails,
-    type PaginatedData,
+import type {
+    BreadcrumbItem,
+    Document,
+    DocumentExperienceGuardrails,
+    PaginatedData,
 } from '@/types';
 
 defineProps<{
@@ -120,7 +120,9 @@ function formatFileSize(bytes: number): string {
 
                         <div class="mt-4 flex items-center gap-3">
                             <a
-                                :href="DocumentController.download.url(document)"
+                                :href="
+                                    DocumentController.download.url(document)
+                                "
                                 class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                             >
                                 Download
@@ -139,9 +141,7 @@ function formatFileSize(bytes: number): string {
                 <div class="hidden overflow-x-auto md:block">
                     <table class="min-w-full text-sm">
                         <thead>
-                            <tr
-                                class="doc-grid-line border-b bg-muted/75"
-                            >
+                            <tr class="doc-grid-line border-b bg-muted/75">
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
                                 >

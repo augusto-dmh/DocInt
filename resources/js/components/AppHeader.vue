@@ -2,7 +2,6 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { LayoutGrid, Menu } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
-import { getInitials } from '@/composables/useInitials';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -18,6 +17,7 @@ import {
     SheetTrigger,
 } from '@/components/ui/sheet';
 import UserMenuContent from '@/components/UserMenuContent.vue';
+import { getInitials } from '@/composables/useInitials';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
 
@@ -97,7 +97,11 @@ const page = usePage();
                                     <AvatarFallback
                                         class="rounded-lg bg-secondary font-semibold text-secondary-foreground"
                                     >
-                                        {{ getInitials(page.props.auth.user.name) }}
+                                        {{
+                                            getInitials(
+                                                page.props.auth.user.name,
+                                            )
+                                        }}
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>

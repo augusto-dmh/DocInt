@@ -23,7 +23,7 @@ import { index as clientsIndex } from '@/routes/clients';
 import { index as documentsIndex } from '@/routes/documents';
 import { index as mattersIndex } from '@/routes/matters';
 import { edit as editProfile } from '@/routes/profile';
-import { type NavItem } from '@/types';
+import type { NavItem } from '@/types';
 import AppLogo from './AppLogo.vue';
 
 const page = usePage();

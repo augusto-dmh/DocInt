@@ -11,10 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
-import {
-    type BreadcrumbItem,
-    type Document,
-    type DocumentExperienceGuardrails,
+import type {
+    BreadcrumbItem,
+    Document,
+    DocumentExperienceGuardrails,
 } from '@/types';
 
 const props = defineProps<{

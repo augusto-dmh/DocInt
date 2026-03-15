@@ -6,11 +6,11 @@ import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFr
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import {
-    type BreadcrumbItem,
-    type Client,
-    type DocumentExperienceGuardrails,
-    type PaginatedData,
+import type {
+    BreadcrumbItem,
+    Client,
+    DocumentExperienceGuardrails,
+    PaginatedData,
 } from '@/types';
 
 defineProps<{
@@ -120,9 +120,7 @@ const breadcrumbItems: BreadcrumbItem[] = [
                 <div class="hidden overflow-x-auto md:block">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr
-                                class="doc-grid-line border-b bg-muted/75"
-                            >
+                            <tr class="doc-grid-line border-b bg-muted/75">
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
                                 >
