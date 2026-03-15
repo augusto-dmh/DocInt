@@ -23,6 +23,19 @@ export type TenantContext = {
     activeTenant: Pick<Tenant, 'id' | 'name' | 'slug'> | null;
 };
 
+export type RealtimeConfig = {
+    enabled: boolean;
+    broadcaster: string;
+    appKey: string | null;
+    host: string | null;
+    port: number | null;
+    scheme: string | null;
+    channels: {
+        tenantDocumentsPattern: string;
+        documentPattern: string;
+    };
+};
+
 export type Auth = {
     user: User;
     roles: string[];

@@ -1,6 +1,7 @@
 x-php-env: &php-env
   DB_HOST: mysql
   DB_PORT: 3306
+  BROADCAST_CONNECTION: reverb
   REDIS_HOST: redis
   REDIS_PORT: 6379
   RABBITMQ_HOST: rabbitmq
@@ -8,6 +9,14 @@ x-php-env: &php-env
   RABBITMQ_USER: docintern
   RABBITMQ_PASSWORD: secret
   RABBITMQ_VHOST: /docintern
+  REVERB_APP_ID: docintern
+  REVERB_APP_KEY: docintern-app-key
+  REVERB_APP_SECRET: docintern-app-secret
+  REVERB_HOST: reverb
+  REVERB_PORT: 8080
+  REVERB_SCHEME: http
+  REVERB_SERVER_HOST: 0.0.0.0
+  REVERB_SERVER_PORT: 8080
   FILESYSTEM_DISK: s3
   QUEUE_CONNECTION: rabbitmq
   PROCESSING_QUEUE_CONNECTION: rabbitmq
@@ -98,6 +107,10 @@ services:
       - node_modules_data:/var/www/html/node_modules
     environment:
       CHOKIDAR_USEPOLLING: "true"
+      VITE_REVERB_APP_KEY: docintern-app-key
+      VITE_REVERB_HOST: localhost
+      VITE_REVERB_PORT: 8080
+      VITE_REVERB_SCHEME: http
     command: >
       sh -lc "
       mkdir -p node_modules public build bootstrap/cache resources/js/actions resources/js/routes &&
@@ -238,6 +251,36 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    networks:
+      - docintern
+
+  reverb:
+    build:
+      context: .
+      dockerfile: docker/reverb/Dockerfile
+    container_name: docintern-reverb
+    working_dir: /var/www/html
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/var/www/html
+      - vendor_data:/var/www/html/vendor
+    environment:
+      <<: *php-env
+      APP_URL: http://localhost
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+    depends_on:
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "$$socket = @fsockopen('127.0.0.1', 8080); exit($$socket ? 0 : 1);"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
     networks:
       - docintern
 

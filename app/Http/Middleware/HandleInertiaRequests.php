@@ -52,6 +52,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'tenant' => $tenant?->only('id', 'name', 'slug', 'logo_url'),
             'tenantContext' => fn () => $this->sharedTenantContext($request, $tenant, $isSuperAdmin),
+            'realtime' => fn () => $this->sharedRealtimeConfig(),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }
@@ -118,6 +119,51 @@ class HandleInertiaRequests extends Middleware
             'canSelect' => $isSuperAdmin,
             'activeTenantId' => $tenant?->id,
             'activeTenant' => $tenant?->only('id', 'name', 'slug'),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     enabled: bool,
+     *     broadcaster: string,
+     *     appKey: string|null,
+     *     host: string|null,
+     *     port: int|null,
+     *     scheme: string|null,
+     *     channels: array{
+     *         tenantDocumentsPattern: string,
+     *         documentPattern: string
+     *     }
+     * }
+     */
+    protected function sharedRealtimeConfig(): array
+    {
+        $clientConfig = config('reverb.client', []);
+        $broadcaster = config('broadcasting.default', 'null');
+        $appKey = is_array($clientConfig) && is_string($clientConfig['app_key'] ?? null) && $clientConfig['app_key'] !== ''
+            ? $clientConfig['app_key']
+            : null;
+        $host = is_array($clientConfig) && is_string($clientConfig['host'] ?? null) && $clientConfig['host'] !== ''
+            ? $clientConfig['host']
+            : null;
+        $scheme = is_array($clientConfig) && is_string($clientConfig['scheme'] ?? null) && $clientConfig['scheme'] !== ''
+            ? $clientConfig['scheme']
+            : null;
+        $port = is_array($clientConfig) && is_numeric($clientConfig['port'] ?? null)
+            ? (int) $clientConfig['port']
+            : null;
+
+        return [
+            'enabled' => $broadcaster === 'reverb' && $appKey !== null,
+            'broadcaster' => is_string($broadcaster) ? $broadcaster : 'null',
+            'appKey' => $appKey,
+            'host' => $host,
+            'port' => $port,
+            'scheme' => $scheme,
+            'channels' => [
+                'tenantDocumentsPattern' => 'tenants.{tenantId}.documents',
+                'documentPattern' => 'documents.{documentId}',
+            ],
         ];
     }
 
