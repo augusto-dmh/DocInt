@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
-import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
+import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
+import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
+import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type { AuditActivity, BreadcrumbItem, Document, Matter } from '@/types';
+import type {
+    AuditActivity,
+    BreadcrumbItem,
+    Document,
+    DocumentExperienceGuardrails,
+    Matter,
+} from '@/types';
+import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 const props = defineProps<{
     document: Document & { matter: Matter };
     recentActivity: AuditActivity[];
+    documentExperience: DocumentExperienceGuardrails;
 }>();
+
+const canEditDocument =
+    usePage().props.auth.permissions.includes('edit documents');
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -22,126 +34,234 @@ const breadcrumbItems: BreadcrumbItem[] = [
     },
 ];
 
-const page = usePage();
-const canEditDocument = computed(() =>
-    page.props.auth.permissions.includes('edit documents'),
-);
+function formatDate(value: string): string {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(new Date(value));
+}
+
+function formatDateTime(value: string): string {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(new Date(value));
+}
+
+function formatFileSize(bytes: number): string {
+    const sizeInMb = bytes / (1024 * 1024);
+
+    if (sizeInMb >= 1) {
+        return `${sizeInMb.toFixed(2)} MB`;
+    }
+
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function activityLabel(action: string): string {
+    if (action === 'uploaded') {
+        return 'Document uploaded';
+    }
+
+    if (action === 'viewed') {
+        return 'Document viewed';
+    }
+
+    if (action === 'downloaded') {
+        return 'Document downloaded';
+    }
+
+    if (action === 'updated') {
+        return 'Document updated';
+    }
+
+    if (action === 'deleted') {
+        return 'Document deleted';
+    }
+
+    return action.replaceAll('_', ' ');
+}
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head :title="document.title" />
 
-        <div
-            class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4"
+        <DocumentExperienceFrame
+            :document-experience="documentExperience"
+            eyebrow="Case document"
+            :title="document.title"
         >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="space-y-2">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        {{ document.title }}
-                    </h1>
-                    <p class="text-sm text-muted-foreground">
-                        Document metadata, linked matter context, and recent
-                        activity.
-                    </p>
-                </div>
+            <template #description>
+                <span class="inline-flex items-center gap-2">
+                    <span class="doc-subtle text-sm">Current status</span>
+                    <DocumentStatusBadge :status="document.status" />
+                </span>
+            </template>
 
-                <div class="flex flex-wrap gap-3">
-                    <Button as-child variant="outline">
-                        <a :href="DocumentController.download.url(document)">
-                            Download
-                        </a>
-                    </Button>
-                    <Button v-if="canEditDocument" as-child>
-                        <Link :href="DocumentController.edit(document)"
-                            >Edit</Link
-                        >
-                    </Button>
-                </div>
-            </div>
-
-            <div class="rounded-xl border border-sidebar-border/70 p-6">
-                <dl class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <dt class="text-sm font-medium text-muted-foreground">
-                            Matter
-                        </dt>
-                        <dd class="mt-1">
-                            <Link
-                                :href="MatterController.show(document.matter)"
-                                class="text-foreground hover:underline"
-                            >
-                                {{ document.matter.title }}
-                            </Link>
-                        </dd>
-                    </div>
-
-                    <div>
-                        <dt class="text-sm font-medium text-muted-foreground">
-                            Status
-                        </dt>
-                        <dd class="mt-1">
-                            {{ document.status.replaceAll('_', ' ') }}
-                        </dd>
-                    </div>
-
-                    <div>
-                        <dt class="text-sm font-medium text-muted-foreground">
-                            File name
-                        </dt>
-                        <dd class="mt-1">{{ document.file_name }}</dd>
-                    </div>
-
-                    <div>
-                        <dt class="text-sm font-medium text-muted-foreground">
-                            Uploaded by
-                        </dt>
-                        <dd class="mt-1">
-                            {{ document.uploader?.name ?? '—' }}
-                        </dd>
-                    </div>
-                </dl>
-            </div>
-
-            <div class="rounded-xl border border-sidebar-border/70">
-                <div class="border-b border-sidebar-border/70 px-6 py-4">
-                    <h2 class="text-lg font-semibold">Recent activity</h2>
-                </div>
-
-                <div
-                    v-if="recentActivity.length === 0"
-                    class="px-6 py-12 text-center text-sm text-muted-foreground"
+            <template #actions>
+                <Button
+                    as-child
+                    class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
                 >
-                    No activity has been recorded for this document yet.
-                </div>
+                    <a :href="DocumentController.download.url(document)">
+                        Download
+                    </a>
+                </Button>
 
-                <ul v-else class="divide-y divide-sidebar-border/70">
-                    <li
-                        v-for="activity in recentActivity"
-                        :key="activity.id"
-                        class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 text-sm"
-                    >
+                <Button v-if="canEditDocument" as-child variant="outline">
+                    <Link :href="DocumentController.edit(document)">
+                        Edit metadata
+                    </Link>
+                </Button>
+            </template>
+
+            <div class="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                <DocumentExperienceSurface
+                    :document-experience="documentExperience"
+                    :delay="1"
+                    class="p-6 sm:p-8"
+                >
+                    <div class="flex items-start justify-between gap-4">
                         <div>
-                            <p class="font-medium">
-                                {{ activity.action.replaceAll('_', ' ') }}
+                            <p
+                                class="doc-seal text-xs font-semibold tracking-[0.12em] uppercase"
+                            >
+                                Archive card
                             </p>
-                            <p class="text-muted-foreground">
-                                {{ activity.user?.name ?? 'System' }}
-                            </p>
+                            <h2 class="doc-title mt-2 text-2xl font-semibold">
+                                {{ document.file_name }}
+                            </h2>
                         </div>
-                        <div class="text-right text-muted-foreground">
-                            <p>
-                                {{
-                                    new Date(
-                                        activity.created_at,
-                                    ).toLocaleString()
-                                }}
-                            </p>
-                            <p>{{ activity.ip_address ?? 'No IP recorded' }}</p>
+
+                        <DocumentStatusBadge :status="document.status" />
+                    </div>
+
+                    <dl class="mt-6 grid gap-4 sm:grid-cols-2">
+                        <div
+                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
+                        >
+                            <dt
+                                class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
+                            >
+                                Matter
+                            </dt>
+                            <dd class="mt-2">
+                                <Link
+                                    :href="
+                                        MatterController.show(document.matter)
+                                    "
+                                    class="doc-title text-base font-semibold hover:underline"
+                                >
+                                    {{ document.matter.title }}
+                                </Link>
+                            </dd>
                         </div>
-                    </li>
-                </ul>
+
+                        <div
+                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
+                        >
+                            <dt
+                                class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
+                            >
+                                Uploaded by
+                            </dt>
+                            <dd class="doc-title mt-2 text-base font-semibold">
+                                {{ document.uploader?.name ?? 'System' }}
+                            </dd>
+                        </div>
+
+                        <div
+                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
+                        >
+                            <dt
+                                class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
+                            >
+                                File size
+                            </dt>
+                            <dd class="doc-title mt-2 text-base font-semibold">
+                                {{ formatFileSize(document.file_size) }}
+                            </dd>
+                        </div>
+
+                        <div
+                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
+                        >
+                            <dt
+                                class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
+                            >
+                                Uploaded
+                            </dt>
+                            <dd class="doc-title mt-2 text-base font-semibold">
+                                {{ formatDate(document.created_at) }}
+                            </dd>
+                        </div>
+                    </dl>
+                </DocumentExperienceSurface>
+
+                <DocumentExperienceSurface
+                    :document-experience="documentExperience"
+                    :delay="2"
+                    class="p-6"
+                >
+                    <p
+                        class="doc-seal text-xs font-semibold tracking-[0.12em] uppercase"
+                    >
+                        Recent activity
+                    </p>
+                    <h2 class="doc-title mt-2 text-2xl font-semibold">
+                        Audit timeline
+                    </h2>
+
+                    <div
+                        v-if="recentActivity.length === 0"
+                        class="doc-subtle mt-6 rounded-2xl border border-dashed border-[var(--doc-border)]/80 px-4 py-8 text-center text-sm"
+                    >
+                        No activity has been recorded for this document yet.
+                    </div>
+
+                    <ul v-else class="mt-6 space-y-4">
+                        <li
+                            v-for="activity in recentActivity"
+                            :key="activity.id"
+                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
+                        >
+                            <div
+                                class="flex flex-wrap items-start justify-between gap-3"
+                            >
+                                <div>
+                                    <p
+                                        class="doc-title text-base font-semibold"
+                                    >
+                                        {{ activityLabel(activity.action) }}
+                                    </p>
+                                    <p class="doc-subtle mt-1 text-sm">
+                                        {{ activity.user?.name ?? 'System' }}
+                                    </p>
+                                </div>
+
+                                <div class="text-right">
+                                    <p class="doc-subtle text-sm">
+                                        {{
+                                            formatDateTime(activity.created_at)
+                                        }}
+                                    </p>
+                                    <p class="doc-subtle mt-1 text-xs">
+                                        {{
+                                            activity.ip_address ??
+                                            'No IP recorded'
+                                        }}
+                                    </p>
+                                </div>
+                            </div>
+                        </li>
+                    </ul>
+                </DocumentExperienceSurface>
             </div>
-        </div>
+        </DocumentExperienceFrame>
     </AppLayout>
 </template>

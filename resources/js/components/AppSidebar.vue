@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
-import { Briefcase, LayoutGrid, Users } from 'lucide-vue-next';
+import { Briefcase, FileText, LayoutGrid, Users } from 'lucide-vue-next';
 import AppLogo from '@/components/AppLogo.vue';
 import NavMain from '@/components/NavMain.vue';
 import NavUser from '@/components/NavUser.vue';
@@ -13,10 +13,11 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import type { NavItem } from '@/types';
 import { dashboard } from '@/routes';
 import { index as clientsIndex } from '@/routes/clients';
+import { index as documentsIndex } from '@/routes/documents';
 import { index as mattersIndex } from '@/routes/matters';
-import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     {
@@ -33,6 +34,11 @@ const mainNavItems: NavItem[] = [
         title: 'Matters',
         href: mattersIndex.url(),
         icon: Briefcase,
+    },
+    {
+        title: 'Documents',
+        href: documentsIndex.url(),
+        icon: FileText,
     },
 ];
 </script>
