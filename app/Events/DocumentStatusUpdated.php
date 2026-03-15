@@ -6,10 +6,10 @@ use App\Models\Document;
 use Carbon\CarbonImmutable;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 
-class DocumentStatusUpdated implements ShouldBroadcast
+class DocumentStatusUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets;
 

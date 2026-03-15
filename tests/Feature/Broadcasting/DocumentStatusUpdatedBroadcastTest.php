@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +38,28 @@ function broadcastChannelNames(DocumentStatusUpdated $event): array
         $event->broadcastOn(),
     );
 }
+
+test('document status updated broadcasts immediately instead of using the default queue', function (): void {
+    $tenant = Tenant::factory()->create();
+    $client = Client::factory()->create(['tenant_id' => $tenant->id]);
+    $matter = Matter::factory()->create([
+        'tenant_id' => $tenant->id,
+        'client_id' => $client->id,
+    ]);
+    $document = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+    ]);
+
+    $event = new DocumentStatusUpdated(
+        document: $document,
+        fromStatus: 'uploaded',
+        toStatus: 'scanning',
+        traceId: (string) Str::uuid(),
+    );
+
+    expect($event)->toBeInstanceOf(ShouldBroadcastNow::class);
+});
 
 test('document upload dispatches a document status updated broadcast event', function (): void {
     Event::fake([DocumentStatusUpdated::class]);
