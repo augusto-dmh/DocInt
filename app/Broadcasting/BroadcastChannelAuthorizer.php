@@ -3,33 +3,50 @@
 namespace App\Broadcasting;
 
 use App\Models\Document;
-use App\Models\Tenant;
 use App\Models\User;
 
 class BroadcastChannelAuthorizer
 {
     public function canAccessTenantDocumentsChannel(User $user, string $tenantId): bool
     {
-        $activeTenant = tenant();
-
-        if (! $activeTenant instanceof Tenant) {
-            return false;
+        if (! $user->hasSuperAdminRole()) {
+            return is_string($user->tenant_id)
+                && $user->tenant_id !== ''
+                && $user->tenant_id === $tenantId;
         }
 
-        return $activeTenant->id === $tenantId;
+        $selectedTenantId = $this->selectedTenantId();
+
+        return is_string($selectedTenantId)
+            && $selectedTenantId !== ''
+            && $selectedTenantId === $tenantId;
     }
 
     public function canAccessDocumentChannel(User $user, int $documentId): bool
     {
-        $activeTenant = tenant();
+        $document = Document::query()
+            ->select(['id', 'tenant_id'])
+            ->find($documentId);
 
-        if (! $activeTenant instanceof Tenant) {
+        if (! $document instanceof Document) {
             return false;
         }
 
-        return Document::query()
-            ->whereKey($documentId)
-            ->where('tenant_id', $activeTenant->id)
-            ->exists();
+        return $this->canAccessTenantDocumentsChannel($user, $document->tenant_id);
+    }
+
+    protected function selectedTenantId(): ?string
+    {
+        $sessionKey = config('tenancy.tenant_context.session_key');
+        $resolvedSessionKey = is_string($sessionKey) && $sessionKey !== ''
+            ? $sessionKey
+            : 'active_tenant_id';
+        $selectedTenantId = session($resolvedSessionKey);
+
+        if (! is_string($selectedTenantId) || $selectedTenantId === '') {
+            return null;
+        }
+
+        return $selectedTenantId;
     }
 }

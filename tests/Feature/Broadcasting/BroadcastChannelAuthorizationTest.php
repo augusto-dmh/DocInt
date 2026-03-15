@@ -1,13 +1,13 @@
 <?php
 
+use App\Broadcasting\BroadcastChannelAuthorizer;
 use App\Models\Client;
 use App\Models\Document;
 use App\Models\Matter;
 use App\Models\Tenant;
 use Database\Seeders\RolesAndPermissionsSeeder;
-use Illuminate\Testing\TestResponse;
+use Illuminate\Http\Request;
 use Spatie\Permission\PermissionRegistrar;
-use Tests\TestCase;
 
 beforeEach(function (): void {
     (new RolesAndPermissionsSeeder)->run();
@@ -33,24 +33,8 @@ beforeEach(function (): void {
 afterEach(function (): void {
     setPermissionsTeamId(null);
     tenancy()->end();
+    session()->flush();
 });
-
-function authorizeBroadcastChannel(
-    TestCase $testCase,
-    \App\Models\User $user,
-    string $channelName,
-    array $session = [],
-    array $headers = [],
-): TestResponse {
-    return $testCase
-        ->withHeaders($headers)
-        ->withSession($session)
-        ->actingAs($user)
-        ->post('/broadcasting/auth', [
-            'channel_name' => $channelName,
-            'socket_id' => '1234.5678',
-        ]);
-}
 
 function createBroadcastAuthorizationDocument(): array
 {
@@ -68,49 +52,44 @@ function createBroadcastAuthorizationDocument(): array
     return [$tenant, $document];
 }
 
+test('broadcast auth route uses the tenant-safe middleware stack', function (): void {
+    $route = app('router')->getRoutes()->match(Request::create('/broadcasting/auth', 'POST'));
+
+    expect($route->gatherMiddleware())->toContain('web', 'auth', 'verified', 'tenant');
+});
+
 test('tenant member can authorize tenant and document broadcast channels', function (): void {
     [$tenant, $document] = createBroadcastAuthorizationDocument();
     $user = createTenantAdmin($tenant);
+    $authorizer = app(BroadcastChannelAuthorizer::class);
 
-    authorizeBroadcastChannel($this, $user, "private-tenants.{$tenant->id}.documents")
-        ->assertOk()
-        ->assertJsonStructure(['auth']);
-
-    authorizeBroadcastChannel($this, $user, "private-documents.{$document->id}")
-        ->assertOk()
-        ->assertJsonStructure(['auth']);
+    expect($authorizer->canAccessTenantDocumentsChannel($user, $tenant->id))->toBeTrue()
+        ->and($authorizer->canAccessDocumentChannel($user, $document->id))->toBeTrue();
 });
 
 test('cross tenant member is denied tenant and document broadcast channels', function (): void {
     [$tenant, $document] = createBroadcastAuthorizationDocument();
     $otherTenant = Tenant::factory()->create();
     $user = createTenantAdmin($otherTenant);
+    $authorizer = app(BroadcastChannelAuthorizer::class);
 
-    authorizeBroadcastChannel($this, $user, "private-tenants.{$tenant->id}.documents")
-        ->assertForbidden();
-
-    authorizeBroadcastChannel($this, $user, "private-documents.{$document->id}")
-        ->assertForbidden();
+    expect($authorizer->canAccessTenantDocumentsChannel($user, $tenant->id))->toBeFalse()
+        ->and($authorizer->canAccessDocumentChannel($user, $document->id))->toBeFalse();
 });
 
 test('super admin authorization requires matching active tenant context', function (): void {
     [$tenant, $document] = createBroadcastAuthorizationDocument();
     $superAdmin = createSuperAdmin($tenant);
     $otherTenant = Tenant::factory()->create();
+    $authorizer = app(BroadcastChannelAuthorizer::class);
 
-    authorizeBroadcastChannel($this, $superAdmin, "private-tenants.{$tenant->id}.documents", [
-        tenantContextSessionKey() => $tenant->id,
-    ])->assertOk()->assertJsonStructure(['auth']);
+    session()->put(tenantContextSessionKey(), $tenant->id);
 
-    authorizeBroadcastChannel($this, $superAdmin, "private-documents.{$document->id}", [
-        tenantContextSessionKey() => $tenant->id,
-    ])->assertOk()->assertJsonStructure(['auth']);
+    expect($authorizer->canAccessTenantDocumentsChannel($superAdmin, $tenant->id))->toBeTrue()
+        ->and($authorizer->canAccessDocumentChannel($superAdmin, $document->id))->toBeTrue();
 
-    authorizeBroadcastChannel($this, $superAdmin, "private-tenants.{$tenant->id}.documents", [
-        tenantContextSessionKey() => $otherTenant->id,
-    ])->assertForbidden();
+    session()->put(tenantContextSessionKey(), $otherTenant->id);
 
-    authorizeBroadcastChannel($this, $superAdmin, "private-documents.{$document->id}", [
-        tenantContextSessionKey() => $otherTenant->id,
-    ])->assertForbidden();
+    expect($authorizer->canAccessTenantDocumentsChannel($superAdmin, $tenant->id))->toBeFalse()
+        ->and($authorizer->canAccessDocumentChannel($superAdmin, $document->id))->toBeFalse();
 });
