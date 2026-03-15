@@ -79,6 +79,15 @@ export type DocumentProcessingActivity = {
     created_at: string;
 };
 
+export type DocumentStatusUpdatedPayload = {
+    tenant_id: string;
+    document_id: number;
+    from_status: string | null;
+    to_status: string;
+    trace_id: string | null;
+    occurred_at: string;
+};
+
 export type PaginatedData<T> = {
     data: T[];
     current_page: number;

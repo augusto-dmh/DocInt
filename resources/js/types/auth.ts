@@ -36,15 +36,6 @@ export type RealtimeConfig = {
     };
 };
 
-export type DocumentStatusUpdatedPayload = {
-    tenant_id: string;
-    document_id: number;
-    from_status: string | null;
-    to_status: string;
-    trace_id: string | null;
-    occurred_at: string;
-};
-
 export type Auth = {
     user: User;
     roles: string[];
