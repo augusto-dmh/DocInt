@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
+use App\Http\Controllers\Settings\TenantContextController;
 use App\Http\Controllers\Settings\TwoFactorAuthenticationController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,4 +26,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('settings/two-factor', [TwoFactorAuthenticationController::class, 'show'])
         ->name('two-factor.show');
+
+    Route::get('settings/tenant-context', [TenantContextController::class, 'edit'])
+        ->name('tenant-context.edit');
+    Route::put('settings/tenant-context', [TenantContextController::class, 'update'])
+        ->name('tenant-context.update');
+    Route::delete('settings/tenant-context', [TenantContextController::class, 'destroy'])
+        ->name('tenant-context.destroy');
 });
