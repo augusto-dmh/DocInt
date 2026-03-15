@@ -362,6 +362,7 @@ useDocumentChannel({
 
             <DocumentExperienceSurface
                 :document-experience="documentExperience"
+                :delay="3"
                 class="mt-6 p-6 sm:p-8"
             >
                 <div
