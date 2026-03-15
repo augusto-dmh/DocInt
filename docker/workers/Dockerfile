@@ -34,7 +34,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
 COPY docker/workers/supervisord.conf /etc/supervisor/conf.d/docintern-workers.conf
 
