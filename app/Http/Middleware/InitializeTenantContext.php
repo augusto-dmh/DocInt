@@ -88,7 +88,7 @@ class InitializeTenantContext
             return null;
         }
 
-        $tenantId = $request->session()->get($this->sessionKey());
+        $tenantId = $request->session()->get(config('tenancy.tenant_context.session_key', 'active_tenant_id'));
 
         if (! is_string($tenantId) || $tenantId === '') {
             return null;
@@ -119,7 +119,7 @@ class InitializeTenantContext
         }
 
         if ($this->hasSuperAdminRole($user)) {
-            $selectedTenantId = $request->session()->get($this->sessionKey());
+            $selectedTenantId = $request->session()->get(config('tenancy.tenant_context.session_key', 'active_tenant_id'));
 
             return ! is_string($selectedTenantId)
                 || $selectedTenantId === ''
@@ -176,15 +176,6 @@ class InitializeTenantContext
         return is_string($headerName) && $headerName !== ''
             ? $headerName
             : 'X-Tenant-ID';
-    }
-
-    protected function sessionKey(): string
-    {
-        $sessionKey = config('tenancy.tenant_context.session_key');
-
-        return is_string($sessionKey) && $sessionKey !== ''
-            ? $sessionKey
-            : 'active_tenant_id';
     }
 
     protected function normalizeTenant(TenantContract $tenant): ?Tenant

@@ -28,7 +28,7 @@ class TenantContextController extends Controller
     public function update(TenantContextUpdateRequest $request): RedirectResponse
     {
         $request->session()->put(
-            $this->sessionKey(),
+            config('tenancy.tenant_context.session_key', 'active_tenant_id'),
             $request->validated('tenant_id'),
         );
 
@@ -37,8 +37,7 @@ class TenantContextController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        $this->ensureSuperAdmin($request->user());
-        $request->session()->forget($this->sessionKey());
+        $request->session()->forget(config('tenancy.tenant_context.session_key', 'active_tenant_id'));
 
         return to_route('tenant-context.edit');
     }
@@ -52,7 +51,8 @@ class TenantContextController extends Controller
 
     protected function activeTenantId(Request $request): ?string
     {
-        $tenantId = $request->session()->get($this->sessionKey());
+        $sessionKey = config('tenancy.tenant_context.session_key', 'active_tenant_id');
+        $tenantId = $request->session()->get($sessionKey);
 
         if (! is_string($tenantId) || $tenantId === '') {
             return null;
@@ -62,17 +62,8 @@ class TenantContextController extends Controller
             return $tenantId;
         }
 
-        $request->session()->forget($this->sessionKey());
+        $request->session()->forget($sessionKey);
 
         return null;
-    }
-
-    protected function sessionKey(): string
-    {
-        $sessionKey = config('tenancy.tenant_context.session_key');
-
-        return is_string($sessionKey) && $sessionKey !== ''
-            ? $sessionKey
-            : 'active_tenant_id';
     }
 }
