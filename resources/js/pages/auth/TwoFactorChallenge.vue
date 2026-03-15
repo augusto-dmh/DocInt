@@ -16,7 +16,7 @@ import type { TwoFactorConfigContent } from '@/types';
 const authConfigContent = computed<TwoFactorConfigContent>(() => {
     if (showRecoveryInput.value) {
         return {
-            title: 'Recovery code',
+            title: 'Recovery Code',
             description:
                 'Please confirm access to your account by entering one of your emergency recovery codes.',
             buttonText: 'login using an authentication code',
@@ -24,7 +24,7 @@ const authConfigContent = computed<TwoFactorConfigContent>(() => {
     }
 
     return {
-        title: 'Authentication code',
+        title: 'Authentication Code',
         description:
             'Enter the authentication code provided by your authenticator application.',
         buttonText: 'login using a recovery code',
@@ -47,7 +47,7 @@ const code = ref<string>('');
         :title="authConfigContent.title"
         :description="authConfigContent.description"
     >
-        <Head title="Two-factor authentication" />
+        <Head title="Two-Factor Authentication" />
 
         <div class="space-y-6">
             <template v-if="!showRecoveryInput">
@@ -81,9 +81,13 @@ const code = ref<string>('');
                         </div>
                         <InputError :message="errors.code" />
                     </div>
-                    <Button type="submit" class="w-full" :disabled="processing"
-                        >Continue</Button
+                    <Button
+                        type="submit"
+                        class="workspace-primary-button w-full"
+                        :disabled="processing"
                     >
+                        Continue
+                    </Button>
                     <div class="text-center text-sm text-muted-foreground">
                         <span>or you can </span>
                         <button
@@ -110,11 +114,16 @@ const code = ref<string>('');
                         placeholder="Enter recovery code"
                         :autofocus="showRecoveryInput"
                         required
+                        class="workspace-input"
                     />
                     <InputError :message="errors.recovery_code" />
-                    <Button type="submit" class="w-full" :disabled="processing"
-                        >Continue</Button
+                    <Button
+                        type="submit"
+                        class="workspace-primary-button w-full"
+                        :disabled="processing"
                     >
+                        Continue
+                    </Button>
 
                     <div class="text-center text-sm text-muted-foreground">
                         <span>or you can </span>

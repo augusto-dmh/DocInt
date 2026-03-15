@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
+import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentEmptyState from '@/components/documents/DocumentEmptyState.vue';
 import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
@@ -12,16 +14,14 @@ import type {
     DocumentExperienceGuardrails,
     PaginatedData,
 } from '@/types';
-import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
 
 defineProps<{
     documents: PaginatedData<Document>;
     documentExperience: DocumentExperienceGuardrails;
 }>();
 
-const canEditDocument =
-    usePage().props.auth.permissions.includes('edit documents');
+const permissions = usePage().props.auth.permissions;
+const canEditDocuments = permissions.includes('edit documents');
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -57,7 +57,7 @@ function formatFileSize(bytes: number): string {
             :document-experience="documentExperience"
             eyebrow="Private repository"
             title="Document ledger"
-            description="Searchable matter documents with immutable storage, tenant boundaries, and traceable activity."
+            description="Searchable matter documents with immutable storage and traceable activity."
         >
             <DocumentEmptyState
                 v-if="documents.data.length === 0"
@@ -85,7 +85,7 @@ function formatFileSize(bytes: number): string {
                     <article
                         v-for="document in documents.data"
                         :key="`mobile-${document.id}`"
-                        class="rounded-xl border border-[var(--doc-border)]/75 bg-[var(--doc-paper)]/65 p-4"
+                        class="doc-grid-line rounded-xl border p-4"
                     >
                         <div class="flex items-start justify-between gap-3">
                             <Link
@@ -101,6 +101,7 @@ function formatFileSize(bytes: number): string {
                             {{ document.file_name }} •
                             {{ formatFileSize(document.file_size) }}
                         </p>
+
                         <p class="doc-subtle mt-1 text-xs">
                             Matter:
                             <Link
@@ -112,19 +113,22 @@ function formatFileSize(bytes: number): string {
                             </Link>
                             <span v-else>—</span>
                         </p>
+
                         <p class="doc-subtle mt-1 text-xs">
                             Created {{ formatDate(document.created_at) }}
                         </p>
 
                         <div class="mt-4 flex items-center gap-3">
-                            <Link
-                                :href="DocumentController.show(document)"
+                            <a
+                                :href="
+                                    DocumentController.download.url(document)
+                                "
                                 class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                             >
-                                Open
-                            </Link>
+                                Download
+                            </a>
                             <Link
-                                v-if="canEditDocument"
+                                v-if="canEditDocuments"
                                 :href="DocumentController.edit(document)"
                                 class="doc-subtle text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                             >
@@ -137,9 +141,7 @@ function formatFileSize(bytes: number): string {
                 <div class="hidden overflow-x-auto md:block">
                     <table class="min-w-full text-sm">
                         <thead>
-                            <tr
-                                class="border-b border-[var(--doc-border)]/75 bg-muted/70"
-                            >
+                            <tr class="doc-grid-line border-b bg-muted/75">
                                 <th
                                     class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
                                 >
@@ -181,7 +183,7 @@ function formatFileSize(bytes: number): string {
                             <tr
                                 v-for="document in documents.data"
                                 :key="document.id"
-                                class="border-b border-[var(--doc-border)]/70 last:border-0"
+                                class="doc-grid-line border-b last:border-0"
                             >
                                 <td class="px-4 py-3">
                                     <Link
@@ -226,18 +228,18 @@ function formatFileSize(bytes: number): string {
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="inline-flex items-center gap-3">
-                                        <Link
+                                        <a
                                             :href="
-                                                DocumentController.show(
+                                                DocumentController.download.url(
                                                     document,
                                                 )
                                             "
                                             class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                                         >
-                                            Open
-                                        </Link>
+                                            Download
+                                        </a>
                                         <Link
-                                            v-if="canEditDocument"
+                                            v-if="canEditDocuments"
                                             :href="
                                                 DocumentController.edit(
                                                     document,
@@ -255,30 +257,31 @@ function formatFileSize(bytes: number): string {
                 </div>
             </DocumentExperienceSurface>
 
-            <div
+            <nav
                 v-if="documents.last_page > 1"
                 class="doc-fade-up doc-delay-2 mt-6 flex flex-wrap items-center justify-center gap-2"
+                aria-label="Documents pagination"
             >
                 <template v-for="link in documents.links" :key="link.label">
                     <Link
                         v-if="link.url"
                         :href="link.url"
-                        class="rounded-full border border-[var(--doc-border)]/70 px-3 py-1.5 text-sm transition"
+                        class="rounded-md border border-[var(--doc-border)] px-3 py-1.5 text-sm transition"
                         :class="
                             link.active
-                                ? 'bg-[var(--doc-seal)] text-white'
-                                : 'bg-[var(--doc-paper)] text-[var(--doc-muted)] hover:text-[var(--doc-ink)]'
+                                ? 'border-[var(--doc-seal)] bg-[var(--doc-seal)] text-white'
+                                : 'bg-[var(--doc-paper)] hover:bg-muted'
                         "
                     >
                         <span v-html="link.label" />
                     </Link>
                     <span
                         v-else
-                        class="px-3 py-1.5 text-sm text-[var(--doc-muted)]/50"
+                        class="rounded-md border border-[var(--doc-border)]/60 px-3 py-1.5 text-sm text-[var(--doc-muted)]/60"
                         v-html="link.label"
                     />
                 </template>
-            </div>
+            </nav>
         </DocumentExperienceFrame>
     </AppLayout>
 </template>

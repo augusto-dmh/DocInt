@@ -28,7 +28,7 @@ defineProps<{
 
         <div
             v-if="status"
-            class="mb-4 text-center text-sm font-medium text-green-600"
+            class="workspace-alert mb-4 text-center text-sm font-medium"
         >
             {{ status }}
         </div>
@@ -51,6 +51,7 @@ defineProps<{
                         :tabindex="1"
                         autocomplete="email"
                         placeholder="email@example.com"
+                        class="workspace-input"
                     />
                     <InputError :message="errors.email" />
                 </div>
@@ -75,6 +76,7 @@ defineProps<{
                         :tabindex="2"
                         autocomplete="current-password"
                         placeholder="Password"
+                        class="workspace-input"
                     />
                     <InputError :message="errors.password" />
                 </div>
@@ -88,7 +90,7 @@ defineProps<{
 
                 <Button
                     type="submit"
-                    class="mt-4 w-full"
+                    class="workspace-primary-button mt-4 w-full"
                     :tabindex="4"
                     :disabled="processing"
                     data-test="login-button"

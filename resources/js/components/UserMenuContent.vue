@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Link, router } from '@inertiajs/vue3';
-import { LogOut, Settings } from 'lucide-vue-next';
+import { Link, router, usePage } from '@inertiajs/vue3';
+import { Building2, LogOut, Settings } from 'lucide-vue-next';
 import {
     DropdownMenuGroup,
     DropdownMenuItem,
@@ -10,6 +10,7 @@ import {
 import UserInfo from '@/components/UserInfo.vue';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
+import { edit as editTenantContext } from '@/routes/tenant-context';
 import type { User } from '@/types';
 
 type Props = {
@@ -19,6 +20,8 @@ type Props = {
 const handleLogout = () => {
     router.flushAll();
 };
+
+const page = usePage();
 
 defineProps<Props>();
 </script>
@@ -32,9 +35,23 @@ defineProps<Props>();
     <DropdownMenuSeparator />
     <DropdownMenuGroup>
         <DropdownMenuItem :as-child="true">
-            <Link class="block w-full cursor-pointer" :href="edit()" prefetch>
+            <Link
+                class="block w-full cursor-pointer rounded-lg"
+                :href="edit()"
+                prefetch
+            >
                 <Settings class="mr-2 h-4 w-4" />
-                Settings
+                Account settings
+            </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem v-if="page.props.auth.isSuperAdmin" :as-child="true">
+            <Link
+                class="block w-full cursor-pointer rounded-lg"
+                :href="editTenantContext()"
+                prefetch
+            >
+                <Building2 class="mr-2 h-4 w-4" />
+                Tenant context
             </Link>
         </DropdownMenuItem>
     </DropdownMenuGroup>

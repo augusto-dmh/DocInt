@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-import Heading from '@/components/Heading.vue';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
-import { edit as editAppearance } from '@/routes/appearance';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editTenantContext } from '@/routes/tenant-context';
 import { show } from '@/routes/two-factor';
@@ -25,18 +21,14 @@ const sidebarNavItems = computed<NavItem[]>(() => {
             href: editPassword(),
         },
         {
-            title: 'Two-factor auth',
+            title: 'Two-Factor Auth',
             href: show(),
-        },
-        {
-            title: 'Appearance',
-            href: editAppearance(),
         },
     ];
 
     if (page.props.auth.isSuperAdmin) {
         items.push({
-            title: 'Tenant context',
+            title: 'Tenant Context',
             href: editTenantContext(),
         });
     }
@@ -44,47 +36,50 @@ const sidebarNavItems = computed<NavItem[]>(() => {
     return items;
 });
 
-const { isCurrentOrParentUrl } = useCurrentUrl();
+const { isCurrentUrl } = useCurrentUrl();
 </script>
 
 <template>
-    <div class="px-4 py-6">
-        <Heading
-            title="Settings"
-            description="Manage your profile and account settings"
-        />
+    <div class="space-y-8">
+        <header class="workspace-hero workspace-fade-up p-6 sm:p-8">
+            <p
+                class="doc-seal text-xs font-semibold tracking-[0.16em] uppercase"
+            >
+                Security controls
+            </p>
+            <h1 class="doc-title mt-2 text-3xl font-semibold">
+                Account settings
+            </h1>
+            <p class="doc-subtle mt-3 max-w-3xl text-sm sm:text-base">
+                Manage credentials, identity data, and tenant context from one
+                secured workspace.
+            </p>
+        </header>
 
-        <div class="flex flex-col lg:flex-row lg:space-x-12">
-            <aside class="w-full max-w-xl lg:w-48">
-                <nav
-                    class="flex flex-col space-y-1 space-x-0"
-                    aria-label="Settings"
-                >
-                    <Button
+        <div class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <aside class="workspace-panel workspace-fade-up p-3">
+                <nav class="flex flex-col gap-1.5" aria-label="Settings">
+                    <Link
                         v-for="item in sidebarNavItems"
                         :key="toUrl(item.href)"
-                        variant="ghost"
-                        :class="[
-                            'w-full justify-start',
-                            { 'bg-muted': isCurrentOrParentUrl(item.href) },
-                        ]"
-                        as-child
+                        :href="item.href"
+                        class="rounded-xl px-3 py-2.5 text-sm font-medium transition"
+                        :class="
+                            isCurrentUrl(item.href)
+                                ? 'bg-[var(--doc-seal)]/12 text-[var(--doc-seal)]'
+                                : 'text-sidebar-foreground hover:bg-muted'
+                        "
                     >
-                        <Link :href="item.href">
-                            <component :is="item.icon" class="h-4 w-4" />
-                            {{ item.title }}
-                        </Link>
-                    </Button>
+                        {{ item.title }}
+                    </Link>
                 </nav>
             </aside>
 
-            <Separator class="my-6 lg:hidden" />
-
-            <div class="flex-1 md:max-w-2xl">
-                <section class="max-w-xl space-y-12">
-                    <slot />
-                </section>
-            </div>
+            <section
+                class="workspace-panel workspace-fade-up workspace-delay-1 p-6 sm:p-8"
+            >
+                <slot />
+            </section>
         </div>
     </div>
 </template>
