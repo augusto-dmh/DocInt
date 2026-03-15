@@ -7,6 +7,7 @@ use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\Matter;
+use App\Models\ProcessingEvent;
 use App\Models\User;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
@@ -24,11 +25,11 @@ class DocumentController extends Controller
         $this->authorize('viewAny', Document::class);
 
         return Inertia::render('documents/Index', [
-            'documents' => Document::query()
+            'documents' => fn () => Document::query()
                 ->with(['matter', 'uploader'])
                 ->latest()
                 ->paginate(15),
-            'documentExperience' => DocumentExperienceGuardrails::inertiaPayload(),
+            'documentExperience' => fn () => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
 
@@ -69,18 +70,26 @@ class DocumentController extends Controller
         $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
-        $this->logDocumentAction($document, $request, 'viewed');
+        if (! $this->isRealtimeRefresh($request)) {
+            $this->logDocumentAction($document, $request, 'viewed');
+        }
 
         return Inertia::render('documents/Show', [
-            'document' => $document->load(['matter.client', 'uploader']),
-            'recentActivity' => $document->auditLogs()
+            'document' => fn () => $document->load(['matter.client', 'uploader']),
+            'recentActivity' => fn () => $document->auditLogs()
                 ->with('user:id,name')
                 ->latest()
                 ->limit(8)
                 ->get()
                 ->map(fn (AuditLog $auditLog): array => $this->formatAuditLog($auditLog))
                 ->values(),
-            'documentExperience' => DocumentExperienceGuardrails::inertiaPayload(),
+            'processingActivity' => fn () => $document->processingEvents()
+                ->latest()
+                ->limit(8)
+                ->get()
+                ->map(fn (ProcessingEvent $processingEvent): array => $this->formatProcessingEvent($processingEvent))
+                ->values(),
+            'documentExperience' => fn () => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
 
@@ -167,6 +176,11 @@ class DocumentController extends Controller
         return $document;
     }
 
+    protected function isRealtimeRefresh(Request $request): bool
+    {
+        return $request->header('X-Docintern-Realtime-Refresh') === '1';
+    }
+
     /**
      * @return array{id: int, action: string, created_at: string, user: array{id: int, name: string}|null, ip_address: string|null}
      */
@@ -187,6 +201,21 @@ class DocumentController extends Controller
             'ip_address' => is_string($metadata['ip_address'] ?? null)
                 ? $metadata['ip_address']
                 : null,
+        ];
+    }
+
+    /**
+     * @return array{id: int, consumer_name: string, status_from: string|null, status_to: string|null, event: string, created_at: string}
+     */
+    protected function formatProcessingEvent(ProcessingEvent $processingEvent): array
+    {
+        return [
+            'id' => $processingEvent->id,
+            'consumer_name' => $processingEvent->consumer_name,
+            'status_from' => $processingEvent->status_from,
+            'status_to' => $processingEvent->status_to,
+            'event' => $processingEvent->event,
+            'created_at' => $processingEvent->created_at->toISOString(),
         ];
     }
 }

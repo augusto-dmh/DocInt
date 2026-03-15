@@ -1,27 +1,33 @@
 <script setup lang="ts">
-import { Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
 import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import { Button } from '@/components/ui/button';
+import { useDocumentChannel } from '@/composables/useDocumentChannel';
 import AppLayout from '@/layouts/AppLayout.vue';
 import type {
     BreadcrumbItem,
     Document,
     DocumentActivity,
     DocumentExperienceGuardrails,
+    DocumentProcessingActivity,
 } from '@/types';
 
 const props = defineProps<{
     document: Document;
     recentActivity: DocumentActivity[];
+    processingActivity: DocumentProcessingActivity[];
     documentExperience: DocumentExperienceGuardrails;
 }>();
 
 const permissions = usePage().props.auth.permissions;
 const canEditDocuments = permissions.includes('edit documents');
+const isReloadingDocument = ref(false);
+const hasPendingDocumentReload = ref(false);
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -80,6 +86,67 @@ function activityLabel(action: string): string {
 
     return action.replaceAll('_', ' ');
 }
+
+function formatProcessingConsumer(consumerName: string): string {
+    return consumerName
+        .split('-')
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(' ');
+}
+
+function formatProcessingTransition(
+    statusFrom: string | null,
+    statusTo: string | null,
+    event: string,
+): string {
+    if (statusFrom && statusTo) {
+        return `${statusFrom.replaceAll('_', ' ')} -> ${statusTo.replaceAll('_', ' ')}`;
+    }
+
+    if (statusTo) {
+        return statusTo.replaceAll('_', ' ');
+    }
+
+    return event.replaceAll('.', ' ');
+}
+
+function reloadDocument(): void {
+    if (isReloadingDocument.value) {
+        hasPendingDocumentReload.value = true;
+
+        return;
+    }
+
+    isReloadingDocument.value = true;
+
+    router.reload({
+        only: ['document', 'recentActivity', 'processingActivity'],
+        headers: {
+            'X-Docintern-Realtime-Refresh': '1',
+        },
+        onFinish: () => {
+            isReloadingDocument.value = false;
+
+            if (!hasPendingDocumentReload.value) {
+                return;
+            }
+
+            hasPendingDocumentReload.value = false;
+            reloadDocument();
+        },
+    });
+}
+
+useDocumentChannel({
+    documentId: props.document.id,
+    onStatusUpdated: (payload) => {
+        if (payload.document_id !== props.document.id) {
+            return;
+        }
+
+        reloadDocument();
+    },
+});
 </script>
 
 <template>
@@ -238,18 +305,84 @@ function activityLabel(action: string): string {
                     class="mb-4 flex flex-wrap items-center justify-between gap-2"
                 >
                     <h2 class="doc-title text-xl font-semibold">
+                        Processing activity
+                    </h2>
+                    <span
+                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                    >
+                        {{ props.processingActivity.length }} events
+                    </span>
+                </div>
+
+                <div
+                    v-if="props.processingActivity.length === 0"
+                    class="doc-grid-line rounded-xl border border-dashed p-4"
+                >
+                    <p class="doc-title text-sm font-semibold">
+                        No processing events yet
+                    </p>
+                    <p class="doc-subtle mt-1 text-xs leading-5">
+                        Runtime workers will append scan, extraction, and
+                        classification activity here as the document moves
+                        through the pipeline.
+                    </p>
+                </div>
+
+                <ol v-else class="space-y-3">
+                    <li
+                        v-for="event in props.processingActivity"
+                        :key="event.id"
+                        class="doc-grid-line rounded-xl border p-4"
+                    >
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2"
+                        >
+                            <div>
+                                <p class="doc-title text-sm font-semibold">
+                                    {{
+                                        formatProcessingConsumer(
+                                            event.consumer_name,
+                                        )
+                                    }}
+                                </p>
+                                <p class="doc-subtle mt-1 text-xs">
+                                    {{
+                                        formatProcessingTransition(
+                                            event.status_from,
+                                            event.status_to,
+                                            event.event,
+                                        )
+                                    }}
+                                </p>
+                            </div>
+                            <p class="doc-subtle text-xs">
+                                {{ formatDateTime(event.created_at) }}
+                            </p>
+                        </div>
+                    </li>
+                </ol>
+            </DocumentExperienceSurface>
+
+            <DocumentExperienceSurface
+                :document-experience="documentExperience"
+                class="mt-6 p-6 sm:p-8"
+            >
+                <div
+                    class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                >
+                    <h2 class="doc-title text-xl font-semibold">
                         Activity timeline
                     </h2>
                     <span
                         class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
                     >
-                        {{ recentActivity.length }} events
+                        {{ props.recentActivity.length }} events
                     </span>
                 </div>
 
                 <ol class="space-y-3">
                     <li
-                        v-for="activity in recentActivity"
+                        v-for="activity in props.recentActivity"
                         :key="activity.id"
                         class="doc-grid-line rounded-xl border p-4"
                     >
