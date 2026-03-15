@@ -172,7 +172,9 @@ test('background realtime refresh does not create an extra viewed audit log', fu
     $this->actingAs($user)
         ->withHeaders([
             'X-Tenant-ID' => $tenant->id,
-            'X-Docintern-Realtime-Refresh' => '1',
+            'X-Inertia' => 'true',
+            'X-Inertia-Partial-Component' => 'documents/Show',
+            'X-Inertia-Partial-Data' => 'document,recentActivity,processingActivity',
         ])
         ->get(route('documents.show', $document))
         ->assertSuccessful()

@@ -178,7 +178,7 @@ class DocumentController extends Controller
 
     protected function isRealtimeRefresh(Request $request): bool
     {
-        return $request->header('X-Docintern-Realtime-Refresh') === '1';
+        return $request->header('X-Inertia-Partial-Data') !== null;
     }
 
     /**

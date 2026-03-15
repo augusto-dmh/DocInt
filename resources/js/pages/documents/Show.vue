@@ -121,9 +121,6 @@ function reloadDocument(): void {
 
     router.reload({
         only: ['document', 'recentActivity', 'processingActivity'],
-        headers: {
-            'X-Docintern-Realtime-Refresh': '1',
-        },
         onFinish: () => {
             isReloadingDocument.value = false;
 
