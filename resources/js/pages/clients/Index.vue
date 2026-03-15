@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed } from 'vue';
 import ClientController from '@/actions/App/Http/Controllers/ClientController';
+import DocumentEmptyState from '@/components/documents/DocumentEmptyState.vue';
+import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
+import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type {
-    BreadcrumbItem,
-    Client,
-    DocumentExperienceGuardrails,
-    PaginatedData,
+import {
+    type BreadcrumbItem,
+    type Client,
+    type DocumentExperienceGuardrails,
+    type PaginatedData,
 } from '@/types';
 
 defineProps<{
@@ -16,75 +18,134 @@ defineProps<{
     documentExperience: DocumentExperienceGuardrails;
 }>();
 
+const permissions = usePage().props.auth.permissions;
+const canCreateClients = permissions.includes('create clients');
+const canEditClients = permissions.includes('edit clients');
+
 const breadcrumbItems: BreadcrumbItem[] = [
     {
         title: 'Clients',
         href: ClientController.index.url(),
     },
 ];
-
-const page = usePage();
-const canCreateClient = computed(() =>
-    page.props.auth.permissions.includes('create clients'),
-);
-const canEditClient = computed(() =>
-    page.props.auth.permissions.includes('edit clients'),
-);
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head title="Clients" />
 
-        <div
-            class="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4"
+        <DocumentExperienceFrame
+            :document-experience="documentExperience"
+            eyebrow="Relationship ledger"
+            title="Client registry"
+            description="Centralized client records connected to matter and document workflows."
         >
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        Clients
-                    </h1>
-                    <p class="text-sm text-muted-foreground">
-                        Manage the people and organizations connected to your
-                        tenant.
-                    </p>
-                </div>
-
-                <Button v-if="canCreateClient" as-child>
-                    <Link :href="ClientController.create()">New Client</Link>
-                </Button>
-            </div>
-
-            <div
-                class="overflow-hidden rounded-xl border border-sidebar-border/70"
-            >
-                <div
-                    v-if="clients.data.length === 0"
-                    class="flex min-h-64 items-center justify-center px-6 py-12 text-center text-sm text-muted-foreground"
+            <template #actions>
+                <Button
+                    v-if="canCreateClients"
+                    as-child
+                    class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
                 >
-                    No clients found. Create the first client record to get
-                    started.
+                    <Link :href="ClientController.create()">New client</Link>
+                </Button>
+            </template>
+
+            <DocumentEmptyState
+                v-if="clients.data.length === 0"
+                :document-experience="documentExperience"
+                title="No clients added yet"
+                description="Create your first client profile to start opening matters and linking documents."
+                class="doc-fade-up doc-delay-1 mt-6"
+            >
+                <template #actions>
+                    <Button v-if="canCreateClients" as-child variant="outline">
+                        <Link :href="ClientController.create()">
+                            Create client
+                        </Link>
+                    </Button>
+                </template>
+            </DocumentEmptyState>
+
+            <DocumentExperienceSurface
+                v-else
+                :document-experience="documentExperience"
+                :delay="1"
+                class="mt-6 overflow-hidden"
+            >
+                <div class="grid gap-3 p-4 sm:p-5 md:hidden">
+                    <article
+                        v-for="client in clients.data"
+                        :key="`mobile-${client.id}`"
+                        class="doc-grid-line rounded-xl border p-4"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <Link
+                                :href="ClientController.show(client)"
+                                class="doc-title text-base font-semibold hover:underline"
+                            >
+                                {{ client.name }}
+                            </Link>
+                            <span
+                                class="doc-subtle text-xs tracking-[0.12em] uppercase"
+                            >
+                                {{ client.matters_count ?? 0 }} matters
+                            </span>
+                        </div>
+
+                        <p class="doc-subtle mt-2 text-xs">
+                            {{ client.email ?? 'No email on file' }}
+                        </p>
+                        <p class="doc-subtle mt-1 text-xs">
+                            {{ client.company ?? 'No company listed' }}
+                        </p>
+
+                        <div class="mt-4 flex items-center gap-3">
+                            <Link
+                                :href="ClientController.show(client)"
+                                class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
+                            >
+                                Open
+                            </Link>
+                            <Link
+                                v-if="canEditClients"
+                                :href="ClientController.edit(client)"
+                                class="doc-subtle text-xs font-medium tracking-[0.12em] uppercase hover:underline"
+                            >
+                                Edit
+                            </Link>
+                        </div>
+                    </article>
                 </div>
 
-                <div v-else class="overflow-x-auto">
+                <div class="hidden overflow-x-auto md:block">
                     <table class="w-full text-sm">
                         <thead>
                             <tr
-                                class="border-b border-sidebar-border/70 bg-muted/40"
+                                class="doc-grid-line border-b bg-muted/75"
                             >
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Name
                                 </th>
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Email
                                 </th>
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Company
                                 </th>
-                                <th class="px-4 py-3 text-left font-medium">
+                                <th
+                                    class="px-4 py-3 text-left text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Matters
                                 </th>
-                                <th class="px-4 py-3 text-right font-medium">
+                                <th
+                                    class="px-4 py-3 text-right text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
                                     Actions
                                 </th>
                             </tr>
@@ -93,23 +154,23 @@ const canEditClient = computed(() =>
                             <tr
                                 v-for="client in clients.data"
                                 :key="client.id"
-                                class="border-b border-sidebar-border/70 last:border-0"
+                                class="doc-grid-line border-b last:border-0"
                             >
                                 <td class="px-4 py-3">
                                     <Link
                                         :href="ClientController.show(client)"
-                                        class="font-medium text-foreground hover:underline"
+                                        class="doc-title text-base font-semibold hover:underline"
                                     >
                                         {{ client.name }}
                                     </Link>
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
+                                <td class="doc-subtle px-4 py-3">
                                     {{ client.email ?? '—' }}
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
+                                <td class="doc-subtle px-4 py-3">
                                     {{ client.company ?? '—' }}
                                 </td>
-                                <td class="px-4 py-3 text-muted-foreground">
+                                <td class="doc-subtle px-4 py-3">
                                     {{ client.matters_count ?? 0 }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
@@ -118,16 +179,16 @@ const canEditClient = computed(() =>
                                             :href="
                                                 ClientController.show(client)
                                             "
-                                            class="text-sm text-muted-foreground hover:text-foreground"
+                                            class="doc-seal text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                                         >
                                             Open
                                         </Link>
                                         <Link
-                                            v-if="canEditClient"
+                                            v-if="canEditClients"
                                             :href="
                                                 ClientController.edit(client)
                                             "
-                                            class="text-sm text-muted-foreground hover:text-foreground"
+                                            class="doc-subtle text-xs font-medium tracking-[0.12em] uppercase hover:underline"
                                         >
                                             Edit
                                         </Link>
@@ -137,32 +198,33 @@ const canEditClient = computed(() =>
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </DocumentExperienceSurface>
 
-            <div
+            <nav
                 v-if="clients.last_page > 1"
-                class="flex flex-wrap items-center justify-center gap-2"
+                class="doc-fade-up doc-delay-2 mt-6 flex flex-wrap items-center justify-center gap-2"
+                aria-label="Clients pagination"
             >
                 <template v-for="link in clients.links" :key="link.label">
                     <Link
                         v-if="link.url"
                         :href="link.url"
-                        class="rounded-md px-3 py-1.5 text-sm transition"
+                        class="rounded-md border border-[var(--doc-border)] px-3 py-1.5 text-sm transition"
                         :class="
                             link.active
-                                ? 'bg-primary text-primary-foreground'
-                                : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'
+                                ? 'border-[var(--doc-seal)] bg-[var(--doc-seal)] text-white'
+                                : 'bg-[var(--doc-paper)] hover:bg-muted'
                         "
                     >
                         <span v-html="link.label" />
                     </Link>
                     <span
                         v-else
-                        class="px-3 py-1.5 text-sm text-muted-foreground/50"
+                        class="rounded-md border border-[var(--doc-border)]/60 px-3 py-1.5 text-sm text-[var(--doc-muted)]/60"
                         v-html="link.label"
                     />
                 </template>
-            </div>
-        </div>
+            </nav>
+        </DocumentExperienceFrame>
     </AppLayout>
 </template>

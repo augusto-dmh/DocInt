@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
 import { ChevronsUpDown } from 'lucide-vue-next';
-import { computed } from 'vue';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -14,10 +13,10 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import UserInfo from '@/components/UserInfo.vue';
-import UserMenuContent from '@/components/UserMenuContent.vue';
+import UserMenuContent from './UserMenuContent.vue';
 
 const page = usePage();
-const user = computed(() => page.props.auth.user);
+const user = page.props.auth.user;
 const { isMobile, state } = useSidebar();
 </script>
 
@@ -28,15 +27,17 @@ const { isMobile, state } = useSidebar();
                 <DropdownMenuTrigger as-child>
                     <SidebarMenuButton
                         size="lg"
-                        class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                        class="rounded-xl border border-transparent px-2 py-2 data-[state=open]:border-[var(--doc-border)] data-[state=open]:bg-muted"
                         data-test="sidebar-menu-button"
                     >
                         <UserInfo :user="user" />
-                        <ChevronsUpDown class="ml-auto size-4" />
+                        <ChevronsUpDown
+                            class="ml-auto size-4 text-[var(--doc-muted)]"
+                        />
                     </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
-                    class="w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+                    class="w-(--reka-dropdown-menu-trigger-width) min-w-56 rounded-xl border-[var(--doc-border)] bg-card p-1.5"
                     :side="
                         isMobile
                             ? 'bottom'

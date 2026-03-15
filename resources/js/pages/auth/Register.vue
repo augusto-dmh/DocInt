@@ -36,6 +36,7 @@ import { store } from '@/routes/register';
                         autocomplete="name"
                         name="name"
                         placeholder="Full name"
+                        class="workspace-input"
                     />
                     <InputError :message="errors.name" />
                 </div>
@@ -50,6 +51,7 @@ import { store } from '@/routes/register';
                         autocomplete="email"
                         name="email"
                         placeholder="email@example.com"
+                        class="workspace-input"
                     />
                     <InputError :message="errors.email" />
                 </div>
@@ -64,6 +66,7 @@ import { store } from '@/routes/register';
                         autocomplete="new-password"
                         name="password"
                         placeholder="Password"
+                        class="workspace-input"
                     />
                     <InputError :message="errors.password" />
                 </div>
@@ -78,13 +81,14 @@ import { store } from '@/routes/register';
                         autocomplete="new-password"
                         name="password_confirmation"
                         placeholder="Confirm password"
+                        class="workspace-input"
                     />
                     <InputError :message="errors.password_confirmation" />
                 </div>
 
                 <Button
                     type="submit"
-                    class="mt-2 w-full"
+                    class="workspace-primary-button mt-2 w-full"
                     tabindex="5"
                     :disabled="processing"
                     data-test="register-user-button"

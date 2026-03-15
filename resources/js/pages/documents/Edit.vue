@@ -1,38 +1,38 @@
 <script setup lang="ts">
-import { Form, Head, Link, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type {
-    BreadcrumbItem,
-    Document,
-    DocumentExperienceGuardrails,
-    Matter,
+import {
+    type BreadcrumbItem,
+    type Document,
+    type DocumentExperienceGuardrails,
 } from '@/types';
-import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
-import MatterController from '@/actions/App/Http/Controllers/MatterController';
-
-const isDeleteDialogOpen = ref(false);
 
 const props = defineProps<{
-    document: Document & { matter: Matter };
+    document: Document;
     documentExperience: DocumentExperienceGuardrails;
 }>();
+
+const permissions = usePage().props.auth.permissions;
+const canDeleteDocuments = permissions.includes('delete documents');
+
+const form = useForm<{
+    title: string;
+}>({
+    title: props.document.title,
+});
+
+const deleteForm = useForm({});
+const deleteError = ref('');
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -48,8 +48,28 @@ const breadcrumbItems: BreadcrumbItem[] = [
     },
 ];
 
-const canDeleteDocument =
-    usePage().props.auth.permissions.includes('delete documents');
+function updateDocument(): void {
+    form.submit(DocumentController.update(props.document), {
+        preserveScroll: true,
+    });
+}
+
+function deleteDocument(): void {
+    deleteError.value = '';
+
+    if (!canDeleteDocuments) {
+        deleteError.value = 'You do not have permission to delete documents.';
+        return;
+    }
+
+    if (!window.confirm('Delete this document permanently?')) {
+        return;
+    }
+
+    deleteForm.submit(DocumentController.destroy(props.document), {
+        preserveScroll: true,
+    });
+}
 </script>
 
 <template>
@@ -58,187 +78,113 @@ const canDeleteDocument =
 
         <DocumentExperienceFrame
             :document-experience="documentExperience"
-            eyebrow="Document controls"
-            :title="`Edit ${document.title}`"
+            eyebrow="Metadata revision"
+            title="Edit document record"
+            description="Update document title without changing the archived file."
         >
-            <template #description>
-                <span class="inline-flex items-center gap-2">
-                    <span class="doc-subtle text-sm">Current status</span>
-                    <DocumentStatusBadge :status="document.status" />
-                </span>
-            </template>
+            <DocumentExperienceSurface
+                :document-experience="documentExperience"
+                :delay="1"
+                class="mt-6 p-4 sm:p-5"
+            >
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="space-y-1">
+                        <p class="doc-subtle text-xs">Archived file</p>
+                        <p class="doc-title text-sm font-semibold">
+                            {{ document.file_name }}
+                        </p>
+                    </div>
 
-            <div class="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-                <DocumentExperienceSurface
-                    :document-experience="documentExperience"
-                    :delay="1"
-                    class="p-6 sm:p-8"
+                    <div class="flex flex-wrap items-center gap-2">
+                        <DocumentStatusBadge :status="document.status" />
+                        <Button
+                            v-if="document.matter"
+                            as-child
+                            variant="outline"
+                            size="sm"
+                        >
+                            <Link
+                                :href="MatterController.show(document.matter)"
+                            >
+                                Open matter
+                            </Link>
+                        </Button>
+                    </div>
+                </div>
+            </DocumentExperienceSurface>
+
+            <DocumentExperienceSurface
+                :document-experience="documentExperience"
+                :delay="2"
+                class="mt-6 p-6 sm:p-8"
+            >
+                <form class="space-y-6" @submit.prevent="updateDocument">
+                    <div class="grid gap-2">
+                        <Label
+                            for="title"
+                            class="doc-title text-sm font-semibold"
+                        >
+                            Document title
+                        </Label>
+                        <Input
+                            id="title"
+                            v-model="form.title"
+                            required
+                            placeholder="Document title"
+                            class="border-[var(--doc-border)] bg-card"
+                        />
+                        <InputError :message="form.errors.title" />
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <Button
+                            type="submit"
+                            :disabled="form.processing"
+                            class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
+                        >
+                            {{ form.processing ? 'Saving...' : 'Save Changes' }}
+                        </Button>
+
+                        <Button as-child variant="outline" type="button">
+                            <Link :href="DocumentController.show(document)"
+                                >Cancel</Link
+                            >
+                        </Button>
+                    </div>
+                </form>
+            </DocumentExperienceSurface>
+
+            <DocumentExperienceSurface
+                v-if="canDeleteDocuments"
+                :document-experience="documentExperience"
+                :delay="2"
+                class="mt-6 border-destructive/30 p-6 sm:p-8"
+            >
+                <h2 class="doc-title text-xl font-semibold">
+                    Destructive action
+                </h2>
+                <p class="doc-subtle mt-2 text-sm">
+                    Deleting removes the file from storage and cannot be undone.
+                </p>
+
+                <Button
+                    type="button"
+                    variant="destructive"
+                    class="mt-4"
+                    :disabled="deleteForm.processing"
+                    @click="deleteDocument"
                 >
-                    <div class="mb-6">
-                        <p
-                            class="doc-seal text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Metadata
-                        </p>
-                        <h2 class="doc-title mt-2 text-2xl font-semibold">
-                            Update document details
-                        </h2>
-                    </div>
+                    {{
+                        deleteForm.processing
+                            ? 'Deleting...'
+                            : 'Delete Document'
+                    }}
+                </Button>
 
-                    <div
-                        class="mb-6 rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
-                    >
-                        <p
-                            class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Linked matter
-                        </p>
-                        <Link
-                            :href="MatterController.show(document.matter)"
-                            class="doc-title mt-2 block text-base font-semibold hover:underline"
-                        >
-                            {{ document.matter.title }}
-                        </Link>
-                    </div>
-
-                    <Form
-                        v-bind="DocumentController.update.form(document)"
-                        v-slot="{ errors, processing, recentlySuccessful }"
-                        class="space-y-6"
-                    >
-                        <div class="grid gap-2">
-                            <Label for="title">Title</Label>
-                            <Input
-                                id="title"
-                                name="title"
-                                required
-                                :default-value="document.title"
-                                placeholder="Document title"
-                            />
-                            <InputError :message="errors.title" />
-                        </div>
-
-                        <div class="flex flex-wrap items-center gap-3">
-                            <Button
-                                :disabled="processing"
-                                class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
-                            >
-                                Save Changes
-                            </Button>
-                            <Button as-child variant="outline">
-                                <Link :href="DocumentController.show(document)"
-                                    >Cancel</Link
-                                >
-                            </Button>
-                            <p
-                                v-if="recentlySuccessful"
-                                class="text-sm text-muted-foreground"
-                            >
-                                Saved.
-                            </p>
-                        </div>
-                    </Form>
-                </DocumentExperienceSurface>
-
-                <DocumentExperienceSurface
-                    :document-experience="documentExperience"
-                    :delay="2"
-                    class="p-6"
-                >
-                    <p
-                        class="doc-seal text-xs font-semibold tracking-[0.12em] uppercase"
-                    >
-                        Stored file
-                    </p>
-                    <h2 class="doc-title mt-2 text-2xl font-semibold">
-                        File record
-                    </h2>
-
-                    <dl class="mt-6 grid gap-4 sm:grid-cols-2">
-                        <div
-                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
-                        >
-                            <dt
-                                class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
-                            >
-                                File name
-                            </dt>
-                            <dd class="doc-title mt-2 text-base font-semibold">
-                                {{ document.file_name }}
-                            </dd>
-                        </div>
-
-                        <div
-                            class="rounded-2xl border border-[var(--doc-border)]/70 bg-[var(--doc-paper)]/72 p-4"
-                        >
-                            <dt
-                                class="doc-subtle text-[11px] font-semibold tracking-[0.12em] uppercase"
-                            >
-                                Status
-                            </dt>
-                            <dd class="mt-2">
-                                <DocumentStatusBadge
-                                    :status="document.status"
-                                />
-                            </dd>
-                        </div>
-                    </dl>
-
-                    <div
-                        v-if="canDeleteDocument"
-                        class="mt-6 rounded-2xl border border-destructive/30 bg-destructive/5 p-5"
-                    >
-                        <h3 class="text-lg font-semibold text-destructive">
-                            Delete document
-                        </h3>
-                        <p class="mt-2 text-sm text-muted-foreground">
-                            This removes the document record and deletes the
-                            stored file for the active tenant.
-                        </p>
-
-                        <Dialog v-model:open="isDeleteDialogOpen">
-                            <DialogTrigger as-child>
-                                <Button variant="destructive" class="mt-4">
-                                    Delete Document
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                                <DialogHeader>
-                                    <DialogTitle>
-                                        Delete {{ document.title }}?
-                                    </DialogTitle>
-                                    <DialogDescription>
-                                        This action cannot be undone.
-                                    </DialogDescription>
-                                </DialogHeader>
-                                <DialogFooter>
-                                    <Button
-                                        variant="outline"
-                                        @click="isDeleteDialogOpen = false"
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Form
-                                        v-bind="
-                                            DocumentController.destroy.form(
-                                                document,
-                                            )
-                                        "
-                                        v-slot="{ processing }"
-                                    >
-                                        <Button
-                                            variant="destructive"
-                                            :disabled="processing"
-                                        >
-                                            Delete Document
-                                        </Button>
-                                    </Form>
-                                </DialogFooter>
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                </DocumentExperienceSurface>
-            </div>
+                <p v-if="deleteError" class="mt-2 text-sm text-destructive">
+                    {{ deleteError }}
+                </p>
+            </DocumentExperienceSurface>
         </DocumentExperienceFrame>
     </AppLayout>
 </template>

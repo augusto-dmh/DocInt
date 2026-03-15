@@ -19,7 +19,6 @@ import {
     InputOTPSlot,
 } from '@/components/ui/input-otp';
 import { Spinner } from '@/components/ui/spinner';
-import { useAppearance } from '@/composables/useAppearance';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 import { confirm } from '@/routes/two-factor';
 import type { TwoFactorConfigContent } from '@/types';
@@ -28,8 +27,6 @@ type Props = {
     requiresConfirmation: boolean;
     twoFactorEnabled: boolean;
 };
-
-const { resolvedAppearance } = useAppearance();
 
 const props = defineProps<Props>();
 const isOpen = defineModel<boolean>('isOpen');
@@ -46,7 +43,7 @@ const pinInputContainerRef = useTemplateRef('pinInputContainerRef');
 const modalConfig = computed<TwoFactorConfigContent>(() => {
     if (props.twoFactorEnabled) {
         return {
-            title: 'Two-factor authentication enabled',
+            title: 'Two-Factor Authentication Enabled',
             description:
                 'Two-factor authentication is now enabled. Scan the QR code or enter the setup key in your authenticator app.',
             buttonText: 'Close',
@@ -55,14 +52,14 @@ const modalConfig = computed<TwoFactorConfigContent>(() => {
 
     if (showVerificationStep.value) {
         return {
-            title: 'Verify authentication code',
+            title: 'Verify Authentication Code',
             description: 'Enter the 6-digit code from your authenticator app',
             buttonText: 'Continue',
         };
     }
 
     return {
-        title: 'Enable two-factor authentication',
+        title: 'Enable Two-Factor Authentication',
         description:
             'To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app',
         buttonText: 'Continue',
@@ -110,13 +107,15 @@ watch(
 
 <template>
     <Dialog :open="isOpen" @update:open="isOpen = $event">
-        <DialogContent class="sm:max-w-md">
+        <DialogContent
+            class="rounded-2xl border-[var(--doc-border)] bg-card sm:max-w-md"
+        >
             <DialogHeader class="flex items-center justify-center">
                 <div
-                    class="mb-3 w-auto rounded-full border border-border bg-card p-0.5 shadow-sm"
+                    class="mb-3 w-auto rounded-full border border-[var(--doc-border)] bg-[var(--doc-paper)] p-0.5 shadow-sm"
                 >
                     <div
-                        class="relative overflow-hidden rounded-full border border-border bg-muted p-2.5"
+                        class="relative overflow-hidden rounded-full border border-[var(--doc-border)] bg-[var(--doc-paper-strong)] p-2.5"
                     >
                         <div
                             class="absolute inset-0 grid grid-cols-5 opacity-50"
@@ -124,7 +123,7 @@ watch(
                             <div
                                 v-for="i in 5"
                                 :key="`col-${i}`"
-                                class="border-r border-border last:border-r-0"
+                                class="border-r border-[var(--doc-border)] last:border-r-0"
                             />
                         </div>
                         <div
@@ -133,7 +132,7 @@ watch(
                             <div
                                 v-for="i in 5"
                                 :key="`row-${i}`"
-                                class="border-b border-border last:border-b-0"
+                                class="border-b border-[var(--doc-border)] last:border-b-0"
                             />
                         </div>
                         <ScanLine
@@ -172,12 +171,6 @@ watch(
                                     <div
                                         v-html="qrCodeSvg"
                                         class="flex aspect-square size-full items-center justify-center"
-                                        :style="{
-                                            filter:
-                                                resolvedAppearance === 'dark'
-                                                    ? 'invert(1) brightness(1.5)'
-                                                    : undefined,
-                                        }"
                                     />
                                 </div>
                             </div>
@@ -193,7 +186,7 @@ watch(
                             class="relative flex w-full items-center justify-center"
                         >
                             <div
-                                class="absolute inset-0 top-1/2 h-px w-full bg-border"
+                                class="absolute inset-0 top-1/2 h-px w-full bg-[var(--doc-border)]"
                             />
                             <span class="relative bg-card px-2 py-1"
                                 >or, enter the code manually</span
@@ -238,7 +231,6 @@ watch(
                 <template v-else>
                     <Form
                         v-bind="confirm.form()"
-                        error-bag="confirmTwoFactorAuthentication"
                         reset-on-error
                         @finish="code = ''"
                         @success="isOpen = false"
@@ -266,7 +258,12 @@ watch(
                                         />
                                     </InputOTPGroup>
                                 </InputOTP>
-                                <InputError :message="errors?.code" />
+                                <InputError
+                                    :message="
+                                        errors?.confirmTwoFactorAuthentication
+                                            ?.code
+                                    "
+                                />
                             </div>
 
                             <div class="flex w-full items-center space-x-5">

@@ -1,29 +1,21 @@
 <script setup lang="ts">
 import { Form, Head, Link, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
 import ClientController from '@/actions/App/Http/Controllers/ClientController';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/AppLayout.vue';
-import type { BreadcrumbItem, Client } from '@/types';
+import { type BreadcrumbItem, type Client } from '@/types';
 
-const isDeleteDialogOpen = ref(false);
-
-const props = defineProps<{
+type Props = {
     client: Client;
-}>();
+};
+
+const props = defineProps<Props>();
+
+const canDeleteClients =
+    usePage().props.auth.permissions.includes('delete clients');
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -38,159 +30,136 @@ const breadcrumbItems: BreadcrumbItem[] = [
         title: 'Edit',
     },
 ];
-
-const page = usePage();
-const canDeleteClient = computed(() =>
-    page.props.auth.permissions.includes('delete clients'),
-);
 </script>
 
 <template>
     <AppLayout :breadcrumbs="breadcrumbItems">
         <Head :title="`Edit ${client.name}`" />
 
-        <div
-            class="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 rounded-xl p-4"
-        >
-            <div class="space-y-2">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Edit Client
-                </h1>
-                <p class="text-sm text-muted-foreground">
-                    Update contact details and tenant-specific notes for this
-                    client.
-                </p>
-            </div>
-
-            <div class="rounded-xl border border-sidebar-border/70 p-6">
-                <Form
-                    v-bind="ClientController.update.form(client)"
-                    v-slot="{ errors, processing, recentlySuccessful }"
-                    class="space-y-6"
-                >
-                    <div class="grid gap-2">
-                        <Label for="name">Name</Label>
-                        <Input
-                            id="name"
-                            name="name"
-                            required
-                            :default-value="client.name"
-                            placeholder="Client name"
-                        />
-                        <InputError :message="errors.name" />
-                    </div>
-
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <div class="grid gap-2">
-                            <Label for="email">Email</Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                name="email"
-                                :default-value="client.email ?? ''"
-                                placeholder="Email address"
-                            />
-                            <InputError :message="errors.email" />
-                        </div>
-
-                        <div class="grid gap-2">
-                            <Label for="phone">Phone</Label>
-                            <Input
-                                id="phone"
-                                name="phone"
-                                :default-value="client.phone ?? ''"
-                                placeholder="Phone number"
-                            />
-                            <InputError :message="errors.phone" />
-                        </div>
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="company">Company</Label>
-                        <Input
-                            id="company"
-                            name="company"
-                            :default-value="client.company ?? ''"
-                            placeholder="Company name"
-                        />
-                        <InputError :message="errors.company" />
-                    </div>
-
-                    <div class="grid gap-2">
-                        <Label for="notes">Notes</Label>
-                        <Textarea
-                            id="notes"
-                            name="notes"
-                            rows="4"
-                            :default-value="client.notes ?? ''"
-                            placeholder="Important context for this client"
-                        />
-                        <InputError :message="errors.notes" />
-                    </div>
-
-                    <div class="flex flex-wrap items-center gap-3">
-                        <Button :disabled="processing">Save Changes</Button>
-                        <Button as-child variant="outline">
-                            <Link :href="ClientController.show(client)"
-                                >Cancel</Link
-                            >
-                        </Button>
-                        <p
-                            v-if="recentlySuccessful"
-                            class="text-sm text-muted-foreground"
-                        >
-                            Saved.
-                        </p>
-                    </div>
-                </Form>
-            </div>
-
-            <div
-                v-if="canDeleteClient"
-                class="rounded-xl border border-destructive/30 p-6"
+        <section class="workspace-hero p-6 sm:p-8">
+            <p
+                class="doc-seal text-xs font-semibold tracking-[0.16em] uppercase"
             >
-                <h2 class="text-lg font-semibold text-destructive">
-                    Delete Client
-                </h2>
-                <p class="mt-2 text-sm text-muted-foreground">
-                    This permanently removes the client record from the active
-                    tenant.
-                </p>
+                Relationship maintenance
+            </p>
+            <h1 class="doc-title mt-2 text-3xl font-semibold">Edit client</h1>
+            <p class="doc-subtle mt-3 text-sm">
+                Keep records current to reduce routing errors in matter and
+                document flows.
+            </p>
+        </section>
 
-                <Dialog v-model:open="isDeleteDialogOpen">
-                    <DialogTrigger as-child>
-                        <Button variant="destructive" class="mt-4"
-                            >Delete Client</Button
+        <section
+            class="workspace-panel workspace-fade-up workspace-delay-1 mt-6 p-6 sm:p-8"
+        >
+            <Form
+                v-bind="ClientController.update.form(client)"
+                class="grid gap-6"
+                v-slot="{ errors, processing, recentlySuccessful }"
+            >
+                <div class="grid gap-2">
+                    <Label for="name" class="workspace-label">Name</Label>
+                    <Input
+                        id="name"
+                        name="name"
+                        :default-value="client.name"
+                        required
+                        class="workspace-input"
+                        placeholder="Client name"
+                    />
+                    <InputError :message="errors.name" />
+                </div>
+
+                <div class="grid gap-2 sm:grid-cols-2 sm:gap-4">
+                    <div class="grid gap-2">
+                        <Label for="email" class="workspace-label">Email</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            name="email"
+                            :default-value="client.email ?? ''"
+                            class="workspace-input"
+                            placeholder="Email address"
+                        />
+                        <InputError :message="errors.email" />
+                    </div>
+
+                    <div class="grid gap-2">
+                        <Label for="phone" class="workspace-label">Phone</Label>
+                        <Input
+                            id="phone"
+                            name="phone"
+                            :default-value="client.phone ?? ''"
+                            class="workspace-input"
+                            placeholder="Phone number"
+                        />
+                        <InputError :message="errors.phone" />
+                    </div>
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="company" class="workspace-label">Company</Label>
+                    <Input
+                        id="company"
+                        name="company"
+                        :default-value="client.company ?? ''"
+                        class="workspace-input"
+                        placeholder="Company name"
+                    />
+                    <InputError :message="errors.company" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="notes" class="workspace-label">Notes</Label>
+                    <textarea
+                        id="notes"
+                        name="notes"
+                        rows="4"
+                        class="workspace-textarea"
+                        placeholder="Additional notes"
+                        :value="client.notes ?? ''"
+                    />
+                    <InputError :message="errors.notes" />
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3">
+                    <Button
+                        :disabled="processing"
+                        class="workspace-primary-button"
+                    >
+                        Save changes
+                    </Button>
+                    <Button as-child variant="outline">
+                        <Link :href="ClientController.show(client)"
+                            >Cancel</Link
                         >
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Delete {{ client.name }}?</DialogTitle>
-                            <DialogDescription>
-                                This action cannot be undone. The client and all
-                                associated data will be permanently removed.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <DialogFooter>
-                            <Button
-                                variant="outline"
-                                @click="isDeleteDialogOpen = false"
-                                >Cancel</Button
-                            >
-                            <Form
-                                v-bind="ClientController.destroy.form(client)"
-                                v-slot="{ processing }"
-                            >
-                                <Button
-                                    variant="destructive"
-                                    :disabled="processing"
-                                    >Delete Client</Button
-                                >
-                            </Form>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-        </div>
+                    </Button>
+                    <p v-if="recentlySuccessful" class="doc-subtle text-sm">
+                        Saved.
+                    </p>
+                </div>
+            </Form>
+        </section>
+
+        <section
+            v-if="canDeleteClients"
+            class="workspace-panel workspace-fade-up workspace-delay-2 mt-6 border-[hsl(3_68%_50%/0.35)] p-6"
+        >
+            <h2 class="doc-title text-xl font-semibold text-destructive">
+                Remove client
+            </h2>
+            <p class="doc-subtle mt-2 text-sm">
+                This action permanently deletes the client record.
+            </p>
+            <Form
+                v-bind="ClientController.destroy.form(client)"
+                v-slot="{ processing }"
+                class="mt-4"
+            >
+                <Button variant="destructive" :disabled="processing">
+                    Delete client
+                </Button>
+            </Form>
+        </section>
     </AppLayout>
 </template>
