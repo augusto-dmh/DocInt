@@ -89,7 +89,7 @@ function reloadDashboardSnapshot(): void {
 }
 
 useDocumentChannel({
-    tenantId: props.realtimeTenantId,
+    tenantId: () => props.realtimeTenantId,
     onStatusUpdated: () => {
         reloadDashboardSnapshot();
     },
