@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\TenantContextUpdateRequest;
 use App\Models\Tenant;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,8 +14,6 @@ class TenantContextController extends Controller
 {
     public function edit(Request $request): Response
     {
-        $this->ensureSuperAdmin($request->user());
-
         return Inertia::render('settings/TenantContext', [
             'tenants' => Tenant::query()
                 ->orderBy('name')
@@ -40,13 +37,6 @@ class TenantContextController extends Controller
         $request->session()->forget(config('tenancy.tenant_context.session_key', 'active_tenant_id'));
 
         return to_route('tenant-context.edit');
-    }
-
-    protected function ensureSuperAdmin(?User $user): void
-    {
-        if (! $user instanceof User || ! $user->hasSuperAdminRole()) {
-            abort(403);
-        }
     }
 
     protected function activeTenantId(Request $request): ?string

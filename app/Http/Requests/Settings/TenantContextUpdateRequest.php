@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests\Settings;
 
-use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -13,9 +12,7 @@ class TenantContextUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $user = $this->user();
-
-        return $user instanceof User && $user->hasSuperAdminRole();
+        return true;
     }
 
     /**
