@@ -120,7 +120,7 @@ class DocumentStatusTransitionService
         event(new DocumentStatusUpdated(
             document: $transitionResult['document'],
             fromStatus: $transitionResult['metadata']['from_status'] ?? null,
-            toStatus: $transitionResult['metadata']['to_status'] ?? $resolvedToStatus->value,
+            toStatus: $transitionResult['metadata']['to_status'],
             traceId: $transitionResult['trace_id'],
         ));
 
