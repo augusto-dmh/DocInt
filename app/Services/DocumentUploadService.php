@@ -111,11 +111,8 @@ class DocumentUploadService
                     $metadata,
                 );
 
-                /** @var Document $freshDocument */
-                $freshDocument = $document->fresh(['matter', 'uploader']);
-
                 return [
-                    'document' => $freshDocument,
+                    'document' => $document,
                     'message_id' => $messageId,
                     'trace_id' => $processingEvent->trace_id,
                     'metadata' => $metadata,
@@ -127,6 +124,10 @@ class DocumentUploadService
 
             throw $throwable;
         }
+
+        /** @var Document $freshDocument */
+        $freshDocument = $uploadResult['document']->fresh(['matter', 'uploader']);
+        $uploadResult['document'] = $freshDocument;
 
         event(new DocumentProcessingEvent(
             messageId: $uploadResult['message_id'],
