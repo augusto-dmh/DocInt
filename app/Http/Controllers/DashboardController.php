@@ -37,11 +37,9 @@ class DashboardController extends Controller
             return $user->tenant_id;
         }
 
-        $sessionKey = config('tenancy.tenant_context.session_key');
-        $resolvedSessionKey = is_string($sessionKey) && $sessionKey !== ''
-            ? $sessionKey
-            : 'active_tenant_id';
-        $selectedTenantId = $request->session()->get($resolvedSessionKey);
+        $selectedTenantId = $request->session()->get(
+            config('tenancy.tenant_context.session_key', 'active_tenant_id')
+        );
 
         if (! is_string($selectedTenantId) || $selectedTenantId === '') {
             return null;
