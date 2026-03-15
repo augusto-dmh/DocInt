@@ -58,7 +58,11 @@ export function documentTypographyClass(
 }
 
 export function documentStatusToneClass(status: DocumentStatusLike): string {
-    if (status === 'approved' || status === 'completed' || status === 'reviewed') {
+    if (
+        status === 'approved' ||
+        status === 'completed' ||
+        status === 'reviewed'
+    ) {
         return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300';
     }
 
