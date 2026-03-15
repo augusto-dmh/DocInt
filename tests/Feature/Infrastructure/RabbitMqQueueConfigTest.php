@@ -24,8 +24,8 @@ test('queue config defines rabbitmq connection with expected defaults', function
         ->and($connection['management']['scheme'])->toBe('http')
         ->and($connection['management']['host'])->toBe('rabbitmq')
         ->and($connection['management']['port'])->toBe(15672)
-        ->and($connection['management']['username'])->toBe((string) env('RABBITMQ_MANAGEMENT_USER', env('RABBITMQ_USER', 'guest')))
-        ->and($connection['management']['password'])->toBe((string) env('RABBITMQ_MANAGEMENT_PASSWORD', env('RABBITMQ_PASSWORD', 'guest')))
+        ->and($connection['management']['username'])->toBe((string) env('RABBITMQ_MANAGEMENT_USER', 'guest'))
+        ->and($connection['management']['password'])->toBe((string) env('RABBITMQ_MANAGEMENT_PASSWORD', 'guest'))
         ->and($connection['management']['vhost'])->toBe('/docintern')
         ->and($connection['management']['timeout_seconds'])->toBe(5);
 });
