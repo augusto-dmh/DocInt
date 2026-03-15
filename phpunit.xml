@@ -26,6 +26,15 @@
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="MAIL_MAILER" value="array"/>
+        <env name="PROCESSING_QUEUE_CONNECTION" value="sync"/>
+        <env name="PROCESSING_OCR_PROVIDER" value="simulated"/>
+        <env name="PROCESSING_CLASSIFICATION_PROVIDER" value="simulated"/>
+        <env name="PROCESSING_RETRY_ATTEMPTS" value="3"/>
+        <env name="PROCESSING_RETRY_BACKOFF" value="5,15,45"/>
+        <env name="PROCESSING_SCAN_WAIT_DELAY_SECONDS" value="5"/>
+        <env name="PROCESSING_CIRCUIT_BREAKER_ENABLED" value="true"/>
+        <env name="PROCESSING_CIRCUIT_BREAKER_FAILURE_THRESHOLD" value="5"/>
+        <env name="PROCESSING_CIRCUIT_BREAKER_COOLDOWN_SECONDS" value="60"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
