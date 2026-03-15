@@ -37,6 +37,52 @@ return [
     'retry_attempts' => (int) env('PROCESSING_RETRY_ATTEMPTS', 3),
     'retry_backoff' => $retryBackoff,
     'scan_wait_delay_seconds' => (int) env('PROCESSING_SCAN_WAIT_DELAY_SECONDS', 5),
+    'runtime_required_contract' => [
+        'exact' => [
+            [
+                'path' => 'processing.ocr_provider',
+                'env' => 'PROCESSING_OCR_PROVIDER',
+                'expected' => 'openai',
+            ],
+            [
+                'path' => 'processing.classification_provider',
+                'env' => 'PROCESSING_CLASSIFICATION_PROVIDER',
+                'expected' => 'openai',
+            ],
+            [
+                'path' => 'filesystems.default',
+                'env' => 'FILESYSTEM_DISK',
+                'expected' => 's3',
+            ],
+            [
+                'path' => 'processing.queue_connection',
+                'env' => 'PROCESSING_QUEUE_CONNECTION',
+                'expected' => 'rabbitmq',
+            ],
+        ],
+        'non_empty' => [
+            [
+                'path' => 'filesystems.disks.s3.key',
+                'env' => 'AWS_ACCESS_KEY_ID',
+            ],
+            [
+                'path' => 'filesystems.disks.s3.secret',
+                'env' => 'AWS_SECRET_ACCESS_KEY',
+            ],
+            [
+                'path' => 'filesystems.disks.s3.region',
+                'env' => 'AWS_DEFAULT_REGION',
+            ],
+            [
+                'path' => 'filesystems.disks.s3.bucket',
+                'env' => 'AWS_BUCKET',
+            ],
+            [
+                'path' => 'processing.openai.api_key',
+                'env' => 'OPENAI_API_KEY',
+            ],
+        ],
+    ],
     'classification_queues' => [
         'contract' => 'queue.classify.contract',
         'tax' => 'queue.classify.tax',
