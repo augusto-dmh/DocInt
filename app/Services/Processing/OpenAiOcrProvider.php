@@ -181,7 +181,7 @@ class OpenAiOcrProvider implements OcrProvider
             : '';
 
         if ($sourceText === '') {
-            $sourceText = trim($this->readTextFromS3($document));
+            $sourceText = trim($this->readTextFromStorage($document));
         }
 
         $sourceText = $this->normalizeSourceText($sourceText);
@@ -201,14 +201,16 @@ class OpenAiOcrProvider implements OcrProvider
         return mb_substr($sourceText, 0, 3000);
     }
 
-    protected function readTextFromS3(Document $document): string
+    protected function readTextFromStorage(Document $document): string
     {
+        $disk = config('filesystems.default', 's3');
+
         try {
             /** @var string $contents */
-            $contents = Storage::disk('s3')->get($document->file_path);
+            $contents = Storage::disk($disk)->get($document->file_path);
         } catch (Throwable $throwable) {
             throw new RuntimeException(
-                sprintf('Unable to read document [%s] from S3 for OpenAI OCR.', $document->id),
+                sprintf('Unable to read document [%s] from storage disk [%s] for OpenAI OCR.', $document->id, $disk),
                 previous: $throwable,
             );
         }
