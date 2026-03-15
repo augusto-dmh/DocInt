@@ -19,7 +19,7 @@ class DocumentUploadService
     protected const string PENDING_FILE_PATH = 'pending';
 
     public function __construct(
-        public ProcessingEventRecorder $processingEventRecorder,
+        protected ProcessingEventRecorder $processingEventRecorder,
     ) {}
 
     public function upload(UploadedFile $file, Matter $matter, User $user, string $title): Document

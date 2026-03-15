@@ -29,7 +29,7 @@ class DocumentStatusTransitionService
     ];
 
     public function __construct(
-        public ProcessingEventRecorder $processingEventRecorder,
+        protected ProcessingEventRecorder $processingEventRecorder,
     ) {}
 
     /**
