@@ -25,4 +25,4 @@ COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
 
 WORKDIR /var/www/html
 
-CMD ["sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
+CMD ["php", "artisan", "schedule:work"]
