@@ -1,12 +1,24 @@
 <script setup lang="ts">
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ArrowRight, Briefcase, FileText, Users } from 'lucide-vue-next';
+import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
+import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { dashboard } from '@/routes';
 import { index as clientsIndex } from '@/routes/clients';
 import { index as documentsIndex } from '@/routes/documents';
 import { index as mattersIndex } from '@/routes/matters';
-import type { BreadcrumbItem } from '@/types';
+import type {
+    BreadcrumbItem,
+    DashboardRecentDocument,
+    DashboardStats,
+} from '@/types';
+
+const props = defineProps<{
+    realtimeTenantId: string | null;
+    stats: DashboardStats;
+    recentDocuments: DashboardRecentDocument[];
+}>();
 
 const page = usePage();
 const tenant = page.props.tenant;
@@ -38,6 +50,15 @@ const quickLinks = [
         icon: FileText,
     },
 ];
+
+function formatUpdatedAt(value: string): string {
+    return new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    }).format(new Date(value));
+}
 </script>
 
 <template>
@@ -92,6 +113,133 @@ const quickLinks = [
 
         <section
             class="workspace-panel workspace-fade-up workspace-delay-1 mt-6 p-6 sm:p-8"
+        >
+            <div
+                class="flex flex-col gap-4 border-b border-[color:var(--doc-border)]/70 pb-6 sm:flex-row sm:items-start sm:justify-between"
+            >
+                <div>
+                    <h2 class="doc-title text-2xl font-semibold">
+                        Live processing snapshot
+                    </h2>
+                    <p class="doc-subtle mt-2 max-w-2xl text-sm">
+                        Tenant-scoped document throughput and the most recent
+                        processing movements currently visible in this workspace.
+                    </p>
+                </div>
+
+                <Link
+                    :href="documentsIndex()"
+                    class="doc-seal inline-flex items-center gap-2 text-xs font-semibold tracking-[0.12em] uppercase hover:underline"
+                >
+                    Open documents
+                    <ArrowRight class="size-4" />
+                </Link>
+            </div>
+
+            <div class="mt-6 grid gap-3 sm:grid-cols-3">
+                <div class="workspace-kpi">
+                    <p class="workspace-label">Processed today</p>
+                    <p class="workspace-kpi-value mt-2">
+                        {{ props.stats.processed_today }}
+                    </p>
+                </div>
+                <div class="workspace-kpi">
+                    <p class="workspace-label">Pending review</p>
+                    <p class="workspace-kpi-value mt-2">
+                        {{ props.stats.pending_review }}
+                    </p>
+                </div>
+                <div class="workspace-kpi">
+                    <p class="workspace-label">Failed documents</p>
+                    <p class="workspace-kpi-value mt-2">
+                        {{ props.stats.failed }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <div
+                    class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                >
+                    <h3 class="doc-title text-lg font-semibold">
+                        Recent document activity
+                    </h3>
+                    <span
+                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                    >
+                        {{ props.recentDocuments.length }} visible
+                    </span>
+                </div>
+
+                <div
+                    v-if="props.realtimeTenantId === null"
+                    class="doc-grid-line rounded-2xl border border-dashed p-5"
+                >
+                    <p class="doc-title text-sm font-semibold">
+                        Select a tenant context to load dashboard activity
+                    </p>
+                    <p class="doc-subtle mt-2 text-sm">
+                        Super-admin access is available, but tenant-scoped
+                        dashboard metrics stay disabled until a workspace
+                        context is selected.
+                    </p>
+                </div>
+
+                <div
+                    v-else-if="props.recentDocuments.length === 0"
+                    class="doc-grid-line rounded-2xl border border-dashed p-5"
+                >
+                    <p class="doc-title text-sm font-semibold">
+                        No recent documents yet
+                    </p>
+                    <p class="doc-subtle mt-2 text-sm">
+                        Upload the first matter document to start tracking live
+                        intake and review activity here.
+                    </p>
+                </div>
+
+                <ol v-else class="space-y-3">
+                    <li
+                        v-for="document in props.recentDocuments"
+                        :key="document.id"
+                        class="doc-grid-line rounded-2xl border p-4"
+                    >
+                        <div
+                            class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+                        >
+                            <div class="min-w-0">
+                                <Link
+                                    :href="DocumentController.show(document.id)"
+                                    class="doc-title block truncate text-sm font-semibold hover:underline sm:text-base"
+                                >
+                                    {{ document.title }}
+                                </Link>
+                                <p class="doc-subtle mt-1 text-xs sm:text-sm">
+                                    {{
+                                        document.matter_title ??
+                                        'No matter linked'
+                                    }}
+                                </p>
+                            </div>
+
+                            <div
+                                class="flex flex-wrap items-center gap-3 sm:justify-end"
+                            >
+                                <DocumentStatusBadge
+                                    :status="document.status"
+                                />
+                                <span class="doc-subtle text-xs">
+                                    {{ formatUpdatedAt(document.updated_at) }}
+                                </span>
+                            </div>
+                        </div>
+                    </li>
+                </ol>
+            </div>
+        </section>
+
+        <section
+            class="workspace-panel workspace-fade-up workspace-delay-2 mt-6 p-6 sm:p-8"
         >
             <h2 class="doc-title text-2xl font-semibold">Workflow posture</h2>
             <p class="doc-subtle mt-3 text-sm">
