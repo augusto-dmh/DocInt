@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
 import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
+import EvidenceKeyValueList from '@/components/documents/EvidenceKeyValueList.vue';
+import PdfViewer from '@/components/documents/PdfViewer.vue';
 import { Button } from '@/components/ui/button';
 import { useDocumentChannel } from '@/composables/useDocumentChannel';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -13,14 +15,20 @@ import type {
     BreadcrumbItem,
     Document,
     DocumentActivity,
+    DocumentClassificationSummary,
+    DocumentExtractedData,
     DocumentExperienceGuardrails,
     DocumentProcessingActivity,
+    DocumentReviewWorkspace,
 } from '@/types';
 
 const props = defineProps<{
     document: Document;
     recentActivity: DocumentActivity[];
     processingActivity: DocumentProcessingActivity[];
+    reviewWorkspace: DocumentReviewWorkspace;
+    extractedData: DocumentExtractedData | null;
+    classification: DocumentClassificationSummary | null;
     documentExperience: DocumentExperienceGuardrails;
 }>();
 
@@ -28,6 +36,19 @@ const permissions = usePage().props.auth.permissions;
 const canEditDocuments = permissions.includes('edit documents');
 const isReloadingDocument = ref(false);
 const hasPendingDocumentReload = ref(false);
+const downloadUrl = computed(() =>
+    DocumentController.download.url(props.document),
+);
+const preview = computed(() => props.reviewWorkspace.preview);
+const extractedDataPayloadEntries = computed(() =>
+    objectEntries(props.extractedData?.payload),
+);
+const extractedDataMetadataEntries = computed(() =>
+    objectEntries(props.extractedData?.metadata),
+);
+const classificationMetadataEntries = computed(() =>
+    objectEntries(props.classification?.metadata),
+);
 
 const breadcrumbItems: BreadcrumbItem[] = [
     {
@@ -67,6 +88,18 @@ function formatFileSize(bytes: number): string {
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+function titleCase(value: string): string {
+    return value
+        .replaceAll('_', ' ')
+        .split(' ')
+        .map((segment) =>
+            segment === ''
+                ? segment
+                : segment.charAt(0).toUpperCase() + segment.slice(1),
+        )
+        .join(' ');
+}
+
 function activityLabel(action: string): string {
     if (action === 'uploaded') {
         return 'Document uploaded';
@@ -88,10 +121,7 @@ function activityLabel(action: string): string {
 }
 
 function formatProcessingConsumer(consumerName: string): string {
-    return consumerName
-        .split('-')
-        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-        .join(' ');
+    return titleCase(consumerName.replaceAll('-', ' '));
 }
 
 function formatProcessingTransition(
@@ -110,6 +140,28 @@ function formatProcessingTransition(
     return event.replaceAll('.', ' ');
 }
 
+function objectEntries(
+    value: Record<string, unknown> | null | undefined,
+): Array<[string, unknown]> {
+    if (!value || Array.isArray(value)) {
+        return [];
+    }
+
+    return Object.entries(value);
+}
+
+function formatClassificationType(value: string): string {
+    return titleCase(value);
+}
+
+function formatConfidence(value: number | null): string | null {
+    if (value === null) {
+        return null;
+    }
+
+    return `${(value * 100).toFixed(1)}% confidence`;
+}
+
 function reloadDocument(): void {
     if (isReloadingDocument.value) {
         hasPendingDocumentReload.value = true;
@@ -120,7 +172,14 @@ function reloadDocument(): void {
     isReloadingDocument.value = true;
 
     router.reload({
-        only: ['document', 'recentActivity', 'processingActivity'],
+        only: [
+            'document',
+            'recentActivity',
+            'processingActivity',
+            'reviewWorkspace',
+            'extractedData',
+            'classification',
+        ],
         onFinish: () => {
             isReloadingDocument.value = false;
 
@@ -182,227 +241,616 @@ useDocumentChannel({
             <DocumentExperienceSurface
                 :document-experience="documentExperience"
                 :delay="1"
-                class="mt-6 p-6 sm:p-8"
+                class="mt-6 p-5 sm:p-6"
             >
-                <dl class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            File name
-                        </dt>
-                        <dd class="doc-title mt-1 text-base font-semibold">
-                            {{ document.file_name }}
-                        </dd>
-                    </div>
-
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            File size
-                        </dt>
-                        <dd class="mt-1 text-sm">
-                            {{ formatFileSize(document.file_size) }}
-                        </dd>
-                    </div>
-
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            MIME type
-                        </dt>
-                        <dd class="mt-1 text-sm">
-                            {{ document.mime_type ?? 'Unknown' }}
-                        </dd>
-                    </div>
-
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Status
-                        </dt>
-                        <dd class="mt-1">
-                            <DocumentStatusBadge :status="document.status" />
-                        </dd>
-                    </div>
-
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Matter
-                        </dt>
-                        <dd class="mt-1 text-sm">
-                            <Link
-                                v-if="document.matter"
-                                :href="MatterController.show(document.matter)"
-                                class="doc-seal hover:underline"
+                <div
+                    class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(22rem,0.85fr)]"
+                >
+                    <div class="space-y-6">
+                        <section class="space-y-4">
+                            <div
+                                class="flex flex-wrap items-center justify-between gap-2"
                             >
-                                {{ document.matter.title }}
-                            </Link>
-                            <span v-else>—</span>
-                        </dd>
+                                <div>
+                                    <h2 class="doc-title text-xl font-semibold">
+                                        Review workspace
+                                    </h2>
+                                    <p
+                                        class="doc-subtle mt-1 text-sm leading-6"
+                                    >
+                                        Keep the source file visible while you
+                                        verify extracted evidence and current
+                                        processing context.
+                                    </p>
+                                </div>
+                                <span
+                                    class="rounded-full border border-[color:var(--doc-grid-line)] px-3 py-1 text-xs font-semibold tracking-[0.12em] text-[var(--doc-seal)] uppercase"
+                                >
+                                    {{
+                                        preview.supported
+                                            ? 'PDF preview'
+                                            : 'File details'
+                                    }}
+                                </span>
+                            </div>
+
+                            <PdfViewer
+                                v-if="preview.supported && preview.url"
+                                :document-experience="documentExperience"
+                                :src="preview.url"
+                                :title="preview.fileName"
+                                :delay="1"
+                            />
+
+                            <div
+                                v-else
+                                class="overflow-hidden rounded-[1.5rem] border border-dashed border-[color:var(--doc-grid-line)] bg-[linear-gradient(135deg,rgba(245,240,231,0.95),rgba(232,224,210,0.88))] p-6 sm:p-8"
+                            >
+                                <div class="max-w-2xl space-y-5">
+                                    <div>
+                                        <p
+                                            class="doc-subtle text-xs font-semibold tracking-[0.16em] uppercase"
+                                        >
+                                            Inline preview unavailable
+                                        </p>
+                                        <h3
+                                            class="doc-title mt-3 text-2xl font-semibold"
+                                        >
+                                            This file stays reviewable through
+                                            its evidence and metadata.
+                                        </h3>
+                                        <p
+                                            class="doc-subtle mt-3 text-sm leading-6"
+                                        >
+                                            Only PDF documents render inside the
+                                            workspace preview. Use the original
+                                            file details below or download the
+                                            source file directly.
+                                        </p>
+                                    </div>
+
+                                    <dl class="grid gap-4 sm:grid-cols-2">
+                                        <div
+                                            class="rounded-2xl border border-[color:var(--doc-grid-line)] bg-white/70 p-4"
+                                        >
+                                            <dt
+                                                class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                            >
+                                                File name
+                                            </dt>
+                                            <dd
+                                                class="doc-title mt-2 text-sm font-semibold"
+                                            >
+                                                {{ preview.fileName }}
+                                            </dd>
+                                        </div>
+                                        <div
+                                            class="rounded-2xl border border-[color:var(--doc-grid-line)] bg-white/70 p-4"
+                                        >
+                                            <dt
+                                                class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                            >
+                                                Detected type
+                                            </dt>
+                                            <dd class="mt-2 text-sm">
+                                                {{
+                                                    preview.mimeType ??
+                                                    'Unknown MIME type'
+                                                }}
+                                            </dd>
+                                        </div>
+                                    </dl>
+
+                                    <Button
+                                        as-child
+                                        class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
+                                    >
+                                        <a :href="downloadUrl">
+                                            Download original file
+                                        </a>
+                                    </Button>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="grid gap-6 lg:grid-cols-2">
+                            <div
+                                class="doc-grid-line rounded-[1.5rem] border p-5"
+                            >
+                                <div
+                                    class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                                >
+                                    <h2 class="doc-title text-lg font-semibold">
+                                        Document metadata
+                                    </h2>
+                                    <DocumentStatusBadge
+                                        :status="document.status"
+                                    />
+                                </div>
+
+                                <dl class="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            File name
+                                        </dt>
+                                        <dd
+                                            class="doc-title mt-1 text-sm font-semibold"
+                                        >
+                                            {{ document.file_name }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            File size
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                formatFileSize(
+                                                    document.file_size,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            MIME type
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                document.mime_type ?? 'Unknown'
+                                            }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Uploaded by
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                document.uploader?.name ??
+                                                'System'
+                                            }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Matter
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            <Link
+                                                v-if="document.matter"
+                                                :href="
+                                                    MatterController.show(
+                                                        document.matter,
+                                                    )
+                                                "
+                                                class="doc-seal hover:underline"
+                                            >
+                                                {{ document.matter.title }}
+                                            </Link>
+                                            <span v-else>—</span>
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Recorded on
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                formatDate(document.created_at)
+                                            }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Last updated
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                formatDate(document.updated_at)
+                                            }}
+                                        </dd>
+                                    </div>
+
+                                    <div class="sm:col-span-2">
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Storage key
+                                        </dt>
+                                        <dd class="mt-1 text-xs break-all">
+                                            {{ document.file_path }}
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </div>
+
+                            <div
+                                class="doc-grid-line rounded-[1.5rem] border p-5"
+                            >
+                                <div
+                                    class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                                >
+                                    <h2 class="doc-title text-lg font-semibold">
+                                        Processing activity
+                                    </h2>
+                                    <span
+                                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                    >
+                                        {{ props.processingActivity.length }}
+                                        events
+                                    </span>
+                                </div>
+
+                                <div
+                                    v-if="props.processingActivity.length === 0"
+                                    class="rounded-2xl border border-dashed border-[color:var(--doc-grid-line)] p-4"
+                                >
+                                    <p class="doc-title text-sm font-semibold">
+                                        No processing events yet
+                                    </p>
+                                    <p
+                                        class="doc-subtle mt-2 text-xs leading-5"
+                                    >
+                                        Runtime workers will append scan,
+                                        extraction, and classification activity
+                                        here as the document moves through the
+                                        pipeline.
+                                    </p>
+                                </div>
+
+                                <ol v-else class="space-y-3">
+                                    <li
+                                        v-for="event in props.processingActivity"
+                                        :key="event.id"
+                                        class="rounded-2xl border border-[color:var(--doc-grid-line)] p-4"
+                                    >
+                                        <div
+                                            class="flex flex-wrap items-center justify-between gap-2"
+                                        >
+                                            <div>
+                                                <p
+                                                    class="doc-title text-sm font-semibold"
+                                                >
+                                                    {{
+                                                        formatProcessingConsumer(
+                                                            event.consumer_name,
+                                                        )
+                                                    }}
+                                                </p>
+                                                <p
+                                                    class="doc-subtle mt-1 text-xs"
+                                                >
+                                                    {{
+                                                        formatProcessingTransition(
+                                                            event.status_from,
+                                                            event.status_to,
+                                                            event.event,
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                            <p class="doc-subtle text-xs">
+                                                {{
+                                                    formatDateTime(
+                                                        event.created_at,
+                                                    )
+                                                }}
+                                            </p>
+                                        </div>
+                                    </li>
+                                </ol>
+                            </div>
+                        </section>
                     </div>
 
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                    <div class="space-y-6">
+                        <section
+                            class="doc-grid-line rounded-[1.5rem] border p-5"
                         >
-                            Uploaded by
-                        </dt>
-                        <dd class="mt-1 text-sm">
-                            {{ document.uploader?.name ?? 'System' }}
-                        </dd>
-                    </div>
+                            <div
+                                class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <h2 class="doc-title text-lg font-semibold">
+                                    Classification
+                                </h2>
+                                <span
+                                    class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    Evidence signal
+                                </span>
+                            </div>
 
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Recorded on
-                        </dt>
-                        <dd class="mt-1 text-sm">
-                            {{ formatDate(document.created_at) }}
-                        </dd>
-                    </div>
+                            <div v-if="classification" class="space-y-4">
+                                <div
+                                    class="rounded-[1.25rem] border border-[color:var(--doc-grid-line)] bg-[rgba(255,255,255,0.66)] p-4"
+                                >
+                                    <p
+                                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                    >
+                                        Type
+                                    </p>
+                                    <p
+                                        class="doc-title mt-2 text-2xl font-semibold"
+                                    >
+                                        {{
+                                            formatClassificationType(
+                                                classification.type,
+                                            )
+                                        }}
+                                    </p>
+                                    <p
+                                        v-if="
+                                            formatConfidence(
+                                                classification.confidence,
+                                            )
+                                        "
+                                        class="doc-subtle mt-2 text-sm"
+                                    >
+                                        {{
+                                            formatConfidence(
+                                                classification.confidence,
+                                            )
+                                        }}
+                                    </p>
+                                </div>
 
-                    <div>
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Last updated
-                        </dt>
-                        <dd class="mt-1 text-sm">
-                            {{ formatDate(document.updated_at) }}
-                        </dd>
-                    </div>
+                                <dl class="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Provider
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{ classification.provider }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Updated
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                formatDateTime(
+                                                    classification.updated_at,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                </dl>
 
-                    <div class="sm:col-span-2 lg:col-span-1">
-                        <dt
-                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                        >
-                            Storage key
-                        </dt>
-                        <dd class="mt-1 text-xs break-all">
-                            {{ document.file_path }}
-                        </dd>
-                    </div>
-                </dl>
-            </DocumentExperienceSurface>
+                                <div
+                                    v-if="
+                                        classificationMetadataEntries.length > 0
+                                    "
+                                    class="space-y-3"
+                                >
+                                    <p
+                                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                    >
+                                        Provider metadata
+                                    </p>
+                                    <EvidenceKeyValueList
+                                        :entries="classificationMetadataEntries"
+                                    />
+                                </div>
+                            </div>
 
-            <DocumentExperienceSurface
-                :document-experience="documentExperience"
-                :delay="2"
-                class="mt-6 p-6 sm:p-8"
-            >
-                <div
-                    class="mb-4 flex flex-wrap items-center justify-between gap-2"
-                >
-                    <h2 class="doc-title text-xl font-semibold">
-                        Processing activity
-                    </h2>
-                    <span
-                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                    >
-                        {{ props.processingActivity.length }} events
-                    </span>
-                </div>
-
-                <div
-                    v-if="props.processingActivity.length === 0"
-                    class="doc-grid-line rounded-xl border border-dashed p-4"
-                >
-                    <p class="doc-title text-sm font-semibold">
-                        No processing events yet
-                    </p>
-                    <p class="doc-subtle mt-1 text-xs leading-5">
-                        Runtime workers will append scan, extraction, and
-                        classification activity here as the document moves
-                        through the pipeline.
-                    </p>
-                </div>
-
-                <ol v-else class="space-y-3">
-                    <li
-                        v-for="event in props.processingActivity"
-                        :key="event.id"
-                        class="doc-grid-line rounded-xl border p-4"
-                    >
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-2"
-                        >
-                            <div>
+                            <div
+                                v-else
+                                class="rounded-2xl border border-dashed border-[color:var(--doc-grid-line)] p-4"
+                            >
                                 <p class="doc-title text-sm font-semibold">
-                                    {{
-                                        formatProcessingConsumer(
-                                            event.consumer_name,
-                                        )
-                                    }}
+                                    Classification pending
                                 </p>
-                                <p class="doc-subtle mt-1 text-xs">
-                                    {{
-                                        formatProcessingTransition(
-                                            event.status_from,
-                                            event.status_to,
-                                            event.event,
-                                        )
-                                    }}
+                                <p class="doc-subtle mt-2 text-sm leading-6">
+                                    This document has not produced a persisted
+                                    classification result yet. The review
+                                    workspace will surface provider details here
+                                    once classification completes.
                                 </p>
                             </div>
-                            <p class="doc-subtle text-xs">
-                                {{ formatDateTime(event.created_at) }}
-                            </p>
-                        </div>
-                    </li>
-                </ol>
-            </DocumentExperienceSurface>
+                        </section>
 
-            <DocumentExperienceSurface
-                :document-experience="documentExperience"
-                :delay="3"
-                class="mt-6 p-6 sm:p-8"
-            >
-                <div
-                    class="mb-4 flex flex-wrap items-center justify-between gap-2"
-                >
-                    <h2 class="doc-title text-xl font-semibold">
-                        Activity timeline
-                    </h2>
-                    <span
-                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                    >
-                        {{ props.recentActivity.length }} events
-                    </span>
-                </div>
-
-                <ol class="space-y-3">
-                    <li
-                        v-for="activity in props.recentActivity"
-                        :key="activity.id"
-                        class="doc-grid-line rounded-xl border p-4"
-                    >
-                        <div
-                            class="flex flex-wrap items-center justify-between gap-2"
+                        <section
+                            class="doc-grid-line rounded-[1.5rem] border p-5"
                         >
-                            <p class="doc-title text-sm font-semibold">
-                                {{ activityLabel(activity.action) }}
-                            </p>
-                            <p class="doc-subtle text-xs">
-                                {{ formatDateTime(activity.created_at) }}
-                            </p>
-                        </div>
+                            <div
+                                class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <h2 class="doc-title text-lg font-semibold">
+                                    Extracted data
+                                </h2>
+                                <span
+                                    class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    Review evidence
+                                </span>
+                            </div>
 
-                        <p class="doc-subtle mt-1 text-xs">
-                            {{ activity.user?.name ?? 'System' }}
-                            <span v-if="activity.ip_address">
-                                • {{ activity.ip_address }}
-                            </span>
-                        </p>
-                    </li>
-                </ol>
+                            <div v-if="extractedData" class="space-y-5">
+                                <dl class="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Provider
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{ extractedData.provider }}
+                                        </dd>
+                                    </div>
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Updated
+                                        </dt>
+                                        <dd class="mt-1 text-sm">
+                                            {{
+                                                formatDateTime(
+                                                    extractedData.updated_at,
+                                                )
+                                            }}
+                                        </dd>
+                                    </div>
+                                </dl>
+
+                                <div
+                                    class="rounded-[1.25rem] border border-[color:var(--doc-grid-line)] bg-[rgba(255,255,255,0.72)] p-4"
+                                >
+                                    <div
+                                        class="mb-3 flex items-center justify-between gap-2"
+                                    >
+                                        <h3
+                                            class="doc-title text-sm font-semibold"
+                                        >
+                                            Extracted text
+                                        </h3>
+                                        <span
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Source transcript
+                                        </span>
+                                    </div>
+
+                                    <div
+                                        v-if="extractedData.extracted_text"
+                                        class="max-h-72 overflow-y-auto rounded-2xl bg-[rgba(244,238,228,0.85)] p-4"
+                                    >
+                                        <p
+                                            class="text-sm leading-6 whitespace-pre-wrap"
+                                        >
+                                            {{ extractedData.extracted_text }}
+                                        </p>
+                                    </div>
+
+                                    <p
+                                        v-else
+                                        class="doc-subtle text-sm leading-6"
+                                    >
+                                        No extracted text is available for this
+                                        document yet.
+                                    </p>
+                                </div>
+
+                                <div
+                                    v-if="
+                                        extractedDataPayloadEntries.length > 0
+                                    "
+                                    class="space-y-3"
+                                >
+                                    <h3 class="doc-title text-sm font-semibold">
+                                        Structured payload
+                                    </h3>
+                                    <EvidenceKeyValueList
+                                        :entries="extractedDataPayloadEntries"
+                                    />
+                                </div>
+
+                                <div
+                                    v-if="
+                                        extractedDataMetadataEntries.length > 0
+                                    "
+                                    class="space-y-3"
+                                >
+                                    <h3 class="doc-title text-sm font-semibold">
+                                        Provider metadata
+                                    </h3>
+                                    <EvidenceKeyValueList
+                                        :entries="extractedDataMetadataEntries"
+                                    />
+                                </div>
+                            </div>
+
+                            <div
+                                v-else
+                                class="rounded-2xl border border-dashed border-[color:var(--doc-grid-line)] p-4"
+                            >
+                                <p class="doc-title text-sm font-semibold">
+                                    No extracted evidence yet
+                                </p>
+                                <p class="doc-subtle mt-2 text-sm leading-6">
+                                    When OCR extraction persists text and
+                                    structured payload data, it will appear here
+                                    alongside the original document preview.
+                                </p>
+                            </div>
+                        </section>
+
+                        <section
+                            class="doc-grid-line rounded-[1.5rem] border p-5"
+                        >
+                            <div
+                                class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <h2 class="doc-title text-lg font-semibold">
+                                    Activity timeline
+                                </h2>
+                                <span
+                                    class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    {{ props.recentActivity.length }} events
+                                </span>
+                            </div>
+
+                            <ol class="space-y-3">
+                                <li
+                                    v-for="activity in props.recentActivity"
+                                    :key="activity.id"
+                                    class="rounded-2xl border border-[color:var(--doc-grid-line)] p-4"
+                                >
+                                    <div
+                                        class="flex flex-wrap items-center justify-between gap-2"
+                                    >
+                                        <p
+                                            class="doc-title text-sm font-semibold"
+                                        >
+                                            {{ activityLabel(activity.action) }}
+                                        </p>
+                                        <p class="doc-subtle text-xs">
+                                            {{
+                                                formatDateTime(
+                                                    activity.created_at,
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+
+                                    <p class="doc-subtle mt-1 text-xs">
+                                        {{ activity.user?.name ?? 'System' }}
+                                        <span v-if="activity.ip_address">
+                                            • {{ activity.ip_address }}
+                                        </span>
+                                    </p>
+                                </li>
+                            </ol>
+                        </section>
+                    </div>
+                </div>
             </DocumentExperienceSurface>
         </DocumentExperienceFrame>
     </AppLayout>

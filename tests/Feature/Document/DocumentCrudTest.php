@@ -3,6 +3,8 @@
 use App\Models\AuditLog;
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\DocumentClassification;
+use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\Tenant;
 use App\Models\User;
@@ -150,6 +152,12 @@ test('document show page can be rendered and logs a view event', function (): vo
             ->where('document.id', $document->id)
             ->where('document.matter.id', $matter->id)
             ->where('document.uploader.id', $user->id)
+            ->where('reviewWorkspace.preview.supported', true)
+            ->where('reviewWorkspace.preview.url', route('documents.preview', $document))
+            ->where('reviewWorkspace.preview.fileName', $document->file_name)
+            ->where('reviewWorkspace.preview.mimeType', 'application/pdf')
+            ->where('extractedData', null)
+            ->where('classification', null)
             ->has('recentActivity', 1)
             ->where('recentActivity.0.action', 'viewed')
         );
@@ -159,6 +167,163 @@ test('document show page can be rendered and logs a view event', function (): vo
         ->where('auditable_id', $document->id)
         ->where('action', 'viewed')
         ->exists())->toBeTrue();
+});
+
+test('document show page includes extracted data and classification evidence payloads', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+        'file_name' => 'engagement-letter.pdf',
+        'mime_type' => null,
+    ]);
+
+    $extractedData = ExtractedData::factory()->create([
+        'tenant_id' => $tenant->id,
+        'document_id' => $document->id,
+        'provider' => 'openai',
+        'extracted_text' => 'Signed engagement letter for litigation support.',
+        'payload' => [
+            'document_number' => 'ENG-204',
+            'lines' => ['Signed engagement letter', 'Litigation support'],
+        ],
+        'metadata' => [
+            'language' => 'en',
+            'pages' => 2,
+        ],
+    ]);
+
+    $classification = DocumentClassification::factory()->create([
+        'tenant_id' => $tenant->id,
+        'document_id' => $document->id,
+        'provider' => 'openai',
+        'type' => 'contract',
+        'confidence' => 0.9821,
+        'metadata' => [
+            'model' => 'gpt-5-mini',
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->get(route('documents.show', $document))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('documents/Show')
+            ->where('reviewWorkspace.preview.supported', true)
+            ->where('reviewWorkspace.preview.url', route('documents.preview', $document))
+            ->where('extractedData.provider', $extractedData->provider)
+            ->where('extractedData.extracted_text', $extractedData->extracted_text)
+            ->where('extractedData.payload.document_number', 'ENG-204')
+            ->where('extractedData.payload.lines.0', 'Signed engagement letter')
+            ->where('extractedData.metadata.language', 'en')
+            ->where('classification.provider', $classification->provider)
+            ->where('classification.type', 'contract')
+            ->where('classification.confidence', 0.9821)
+            ->where('classification.metadata.model', 'gpt-5-mini')
+        );
+});
+
+test('document show page marks non pdf documents as unsupported for inline preview', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+        'file_name' => 'notes.txt',
+        'mime_type' => 'text/plain',
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->get(route('documents.show', $document))
+        ->assertSuccessful()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('documents/Show')
+            ->where('reviewWorkspace.preview.supported', false)
+            ->where('reviewWorkspace.preview.url', null)
+            ->where('reviewWorkspace.preview.fileName', 'notes.txt')
+            ->where('reviewWorkspace.preview.mimeType', 'text/plain')
+        );
+});
+
+test('document preview streams inline pdf content for authorized tenant users', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    Storage::fake('s3');
+
+    $document = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+        'file_path' => "tenants/{$tenant->id}/documents/{$matter->id}/reviewable.pdf",
+        'file_name' => 'reviewable.pdf',
+        'mime_type' => 'application/pdf',
+    ]);
+
+    Storage::disk('s3')->put($document->file_path, '%PDF-1.4 test document');
+
+    $response = $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->get(route('documents.preview', $document));
+
+    $response->assertSuccessful()
+        ->assertHeader('content-type', 'application/pdf');
+
+    expect($response->headers->get('content-disposition'))->toContain('inline;')
+        ->toContain('reviewable.pdf');
+});
+
+test('document preview denies cross tenant access', function (): void {
+    [$tenant, $user] = createDocumentCrudTestContext();
+    $otherTenant = Tenant::factory()->create();
+    $otherMatter = Matter::factory()->create([
+        'tenant_id' => $otherTenant->id,
+        'client_id' => Client::factory()->create(['tenant_id' => $otherTenant->id])->id,
+    ]);
+    $document = Document::factory()->create([
+        'tenant_id' => $otherTenant->id,
+        'matter_id' => $otherMatter->id,
+        'file_name' => 'cross-tenant.pdf',
+        'mime_type' => 'application/pdf',
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->get(route('documents.preview', $document))
+        ->assertNotFound();
+});
+
+test('document preview returns not found for unsupported or missing preview sources', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    Storage::fake('s3');
+
+    $unsupportedDocument = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+        'file_name' => 'notes.txt',
+        'mime_type' => 'text/plain',
+    ]);
+
+    $missingPdfDocument = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+        'file_path' => "tenants/{$tenant->id}/documents/404/missing.pdf",
+        'file_name' => 'missing.pdf',
+        'mime_type' => 'application/pdf',
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->get(route('documents.preview', $unsupportedDocument))
+        ->assertNotFound();
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->get(route('documents.preview', $missingPdfDocument))
+        ->assertNotFound();
 });
 
 test('document edit page can be rendered', function (): void {

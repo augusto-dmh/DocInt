@@ -9,6 +9,9 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function (): void {
     Route::post('matters/{matter}/documents', [DocumentController::class, 'store'])
         ->name('matters.documents.store');
 
+    Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])
+        ->name('documents.preview');
+
     Route::resource('documents', DocumentController::class)
         ->except(['create', 'store']);
 
