@@ -70,7 +70,7 @@ class DocumentController extends Controller
         return to_route('documents.show', $document);
     }
 
-    public function preview(Request $request, Document $document): StreamedResponse
+    public function preview(Document $document): StreamedResponse
     {
         $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
