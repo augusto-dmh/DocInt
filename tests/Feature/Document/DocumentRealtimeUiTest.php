@@ -134,15 +134,28 @@ test('document show partial reload returns only document activity props', functi
             ->where('document.id', $document->id)
             ->has('recentActivity')
             ->has('processingActivity', 1)
+            ->where('reviewWorkspace.preview.supported', true)
+            ->where('extractedData', null)
+            ->where('classification', null)
             ->where('processingActivity.0.id', $processingEvent->id)
             ->has('documentExperience')
             ->reloadOnly(
-                ['document', 'recentActivity', 'processingActivity'],
+                [
+                    'document',
+                    'recentActivity',
+                    'processingActivity',
+                    'reviewWorkspace',
+                    'extractedData',
+                    'classification',
+                ],
                 fn (Assert $reload) => $reload
                     ->component('documents/Show')
                     ->where('document.id', $document->id)
                     ->has('recentActivity')
                     ->has('processingActivity', 1)
+                    ->where('reviewWorkspace.preview.supported', true)
+                    ->where('extractedData', null)
+                    ->where('classification', null)
                     ->where('processingActivity.0.id', $processingEvent->id)
                     ->missing('documentExperience')
             )
@@ -171,12 +184,22 @@ test('background realtime refresh does not create an extra viewed audit log', fu
 
     $response->assertInertia(fn (Assert $page) => $page
         ->reloadOnly(
-            ['document', 'recentActivity', 'processingActivity'],
+            [
+                'document',
+                'recentActivity',
+                'processingActivity',
+                'reviewWorkspace',
+                'extractedData',
+                'classification',
+            ],
             fn (Assert $reload) => $reload
                 ->component('documents/Show')
                 ->where('document.id', $document->id)
                 ->has('recentActivity')
                 ->has('processingActivity')
+                ->where('reviewWorkspace.preview.supported', true)
+                ->where('extractedData', null)
+                ->where('classification', null)
                 ->missing('documentExperience')
         )
     );
