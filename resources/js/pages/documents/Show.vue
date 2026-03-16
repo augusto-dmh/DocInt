@@ -276,9 +276,10 @@ useDocumentChannel({
 
                             <PdfViewer
                                 v-if="preview.supported && preview.url"
-                                :preview-url="preview.url"
-                                :download-url="downloadUrl"
-                                :file-name="preview.fileName"
+                                :document-experience="documentExperience"
+                                :src="preview.url"
+                                :title="preview.fileName"
+                                :delay="1"
                             />
 
                             <div
