@@ -6,6 +6,8 @@ use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
 use App\Models\Document;
+use App\Models\DocumentClassification;
+use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\User;
@@ -13,8 +15,11 @@ use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\HeaderUtils;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
@@ -65,6 +70,42 @@ class DocumentController extends Controller
         return to_route('documents.show', $document);
     }
 
+    public function preview(Request $request, Document $document): StreamedResponse
+    {
+        $document = $this->ensureCurrentTenantDocument($document);
+        $this->authorize('view', $document);
+
+        abort_unless($this->supportsInlinePreview($document), 404);
+
+        $disk = Storage::disk('s3');
+
+        abort_unless(
+            $document->file_path !== '' && $disk->exists($document->file_path),
+            404,
+        );
+
+        $stream = $disk->readStream($document->file_path);
+
+        abort_unless(is_resource($stream), 404);
+
+        return response()->stream(function () use ($stream): void {
+            try {
+                fpassthru($stream);
+            } finally {
+                if (is_resource($stream)) {
+                    fclose($stream);
+                }
+            }
+        }, 200, [
+            'Content-Disposition' => HeaderUtils::makeDisposition(
+                HeaderUtils::DISPOSITION_INLINE,
+                $document->file_name,
+            ),
+            'Content-Type' => 'application/pdf',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function show(Request $request, Document $document): Response
     {
         $document = $this->ensureCurrentTenantDocument($document);
@@ -89,6 +130,15 @@ class DocumentController extends Controller
                 ->get()
                 ->map(fn (ProcessingEvent $processingEvent): array => $this->formatProcessingEvent($processingEvent))
                 ->values(),
+            'reviewWorkspace' => fn (): array => [
+                'preview' => $this->formatPreview($document),
+            ],
+            'extractedData' => fn () => $this->formatExtractedData(
+                $document->extractedData()->first(),
+            ),
+            'classification' => fn () => $this->formatClassification(
+                $document->classification()->first(),
+            ),
             'documentExperience' => fn () => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
@@ -182,6 +232,21 @@ class DocumentController extends Controller
     }
 
     /**
+     * @return array{supported: bool, url: string|null, mimeType: string|null, fileName: string}
+     */
+    protected function formatPreview(Document $document): array
+    {
+        $supported = $this->supportsInlinePreview($document);
+
+        return [
+            'supported' => $supported,
+            'url' => $supported ? route('documents.preview', $document) : null,
+            'mimeType' => $document->mime_type,
+            'fileName' => $document->file_name,
+        ];
+    }
+
+    /**
      * @return array{id: int, action: string, created_at: string, user: array{id: int, name: string}|null, ip_address: string|null}
      */
     protected function formatAuditLog(AuditLog $auditLog): array
@@ -217,5 +282,66 @@ class DocumentController extends Controller
             'event' => $processingEvent->event,
             'created_at' => $processingEvent->created_at->toISOString(),
         ];
+    }
+
+    /**
+     * @return array{
+     *     provider: string,
+     *     extracted_text: string|null,
+     *     payload: array<mixed>|null,
+     *     metadata: array<mixed>|null,
+     *     created_at: string,
+     *     updated_at: string
+     * }|null
+     */
+    protected function formatExtractedData(?ExtractedData $extractedData): ?array
+    {
+        if ($extractedData === null) {
+            return null;
+        }
+
+        return [
+            'provider' => $extractedData->provider,
+            'extracted_text' => $extractedData->extracted_text,
+            'payload' => is_array($extractedData->payload) ? $extractedData->payload : null,
+            'metadata' => is_array($extractedData->metadata) ? $extractedData->metadata : null,
+            'created_at' => $extractedData->created_at->toISOString(),
+            'updated_at' => $extractedData->updated_at->toISOString(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     provider: string,
+     *     type: string,
+     *     confidence: float|null,
+     *     metadata: array<mixed>|null,
+     *     created_at: string,
+     *     updated_at: string
+     * }|null
+     */
+    protected function formatClassification(?DocumentClassification $classification): ?array
+    {
+        if ($classification === null) {
+            return null;
+        }
+
+        return [
+            'provider' => $classification->provider,
+            'type' => $classification->type,
+            'confidence' => is_numeric($classification->confidence) ? (float) $classification->confidence : null,
+            'metadata' => is_array($classification->metadata) ? $classification->metadata : null,
+            'created_at' => $classification->created_at->toISOString(),
+            'updated_at' => $classification->updated_at->toISOString(),
+        ];
+    }
+
+    protected function supportsInlinePreview(Document $document): bool
+    {
+        if ($document->mime_type === 'application/pdf') {
+            return true;
+        }
+
+        return str_ends_with(strtolower($document->file_name), '.pdf');
     }
 }
