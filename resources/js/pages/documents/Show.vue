@@ -6,6 +6,7 @@ import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
+import EvidenceKeyValueList from '@/components/documents/EvidenceKeyValueList.vue';
 import PdfViewer from '@/components/documents/PdfViewer.vue';
 import { Button } from '@/components/ui/button';
 import { useDocumentChannel } from '@/composables/useDocumentChannel';
@@ -147,20 +148,6 @@ function objectEntries(
     }
 
     return Object.entries(value);
-}
-
-function isStructuredValue(value: unknown): boolean {
-    return (
-        Array.isArray(value) || (typeof value === 'object' && value !== null)
-    );
-}
-
-function formatStructuredValue(value: unknown): string {
-    return JSON.stringify(value, null, 2);
-}
-
-function formatFieldLabel(key: string): string {
-    return titleCase(key.replaceAll('-', ' '));
 }
 
 function formatClassificationType(value: string): string {
@@ -665,38 +652,9 @@ useDocumentChannel({
                                     >
                                         Provider metadata
                                     </p>
-                                    <dl class="space-y-3">
-                                        <div
-                                            v-for="[
-                                                key,
-                                                value,
-                                            ] in classificationMetadataEntries"
-                                            :key="key"
-                                            class="rounded-2xl border border-[color:var(--doc-grid-line)] bg-white/60 p-4"
-                                        >
-                                            <dt
-                                                class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                                            >
-                                                {{ formatFieldLabel(key) }}
-                                            </dt>
-                                            <dd class="mt-2 text-sm">
-                                                <pre
-                                                    v-if="
-                                                        isStructuredValue(value)
-                                                    "
-                                                    class="overflow-x-auto font-mono text-xs leading-5 whitespace-pre-wrap"
-                                                    >{{
-                                                        formatStructuredValue(
-                                                            value,
-                                                        )
-                                                    }}</pre
-                                                >
-                                                <span v-else>{{
-                                                    String(value)
-                                                }}</span>
-                                            </dd>
-                                        </div>
-                                    </dl>
+                                    <EvidenceKeyValueList
+                                        :entries="classificationMetadataEntries"
+                                    />
                                 </div>
                             </div>
 
@@ -733,7 +691,7 @@ useDocumentChannel({
                             </div>
 
                             <div v-if="extractedData" class="space-y-5">
-                                <div class="grid gap-4 sm:grid-cols-2">
+                                <dl class="grid gap-4 sm:grid-cols-2">
                                     <div>
                                         <dt
                                             class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
@@ -758,7 +716,7 @@ useDocumentChannel({
                                             }}
                                         </dd>
                                     </div>
-                                </div>
+                                </dl>
 
                                 <div
                                     class="rounded-[1.25rem] border border-[color:var(--doc-grid-line)] bg-[rgba(255,255,255,0.72)] p-4"
@@ -807,38 +765,9 @@ useDocumentChannel({
                                     <h3 class="doc-title text-sm font-semibold">
                                         Structured payload
                                     </h3>
-                                    <dl class="space-y-3">
-                                        <div
-                                            v-for="[
-                                                key,
-                                                value,
-                                            ] in extractedDataPayloadEntries"
-                                            :key="key"
-                                            class="rounded-2xl border border-[color:var(--doc-grid-line)] bg-white/60 p-4"
-                                        >
-                                            <dt
-                                                class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                                            >
-                                                {{ formatFieldLabel(key) }}
-                                            </dt>
-                                            <dd class="mt-2 text-sm">
-                                                <pre
-                                                    v-if="
-                                                        isStructuredValue(value)
-                                                    "
-                                                    class="overflow-x-auto font-mono text-xs leading-5 whitespace-pre-wrap"
-                                                    >{{
-                                                        formatStructuredValue(
-                                                            value,
-                                                        )
-                                                    }}</pre
-                                                >
-                                                <span v-else>{{
-                                                    String(value)
-                                                }}</span>
-                                            </dd>
-                                        </div>
-                                    </dl>
+                                    <EvidenceKeyValueList
+                                        :entries="extractedDataPayloadEntries"
+                                    />
                                 </div>
 
                                 <div
@@ -850,38 +779,9 @@ useDocumentChannel({
                                     <h3 class="doc-title text-sm font-semibold">
                                         Provider metadata
                                     </h3>
-                                    <dl class="space-y-3">
-                                        <div
-                                            v-for="[
-                                                key,
-                                                value,
-                                            ] in extractedDataMetadataEntries"
-                                            :key="key"
-                                            class="rounded-2xl border border-[color:var(--doc-grid-line)] bg-white/60 p-4"
-                                        >
-                                            <dt
-                                                class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
-                                            >
-                                                {{ formatFieldLabel(key) }}
-                                            </dt>
-                                            <dd class="mt-2 text-sm">
-                                                <pre
-                                                    v-if="
-                                                        isStructuredValue(value)
-                                                    "
-                                                    class="overflow-x-auto font-mono text-xs leading-5 whitespace-pre-wrap"
-                                                    >{{
-                                                        formatStructuredValue(
-                                                            value,
-                                                        )
-                                                    }}</pre
-                                                >
-                                                <span v-else>{{
-                                                    String(value)
-                                                }}</span>
-                                            </dd>
-                                        </div>
-                                    </dl>
+                                    <EvidenceKeyValueList
+                                        :entries="extractedDataMetadataEntries"
+                                    />
                                 </div>
                             </div>
 
