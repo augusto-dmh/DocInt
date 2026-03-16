@@ -62,6 +62,35 @@ export type Document = {
     uploader?: User | null;
 };
 
+export type DocumentPreview = {
+    supported: boolean;
+    url: string | null;
+    mimeType: string | null;
+    fileName: string;
+};
+
+export type DocumentReviewWorkspace = {
+    preview: DocumentPreview;
+};
+
+export type DocumentExtractedData = {
+    provider: string;
+    extracted_text: string | null;
+    payload: Record<string, unknown> | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+    updated_at: string;
+};
+
+export type DocumentClassificationSummary = {
+    provider: string;
+    type: string;
+    confidence: number | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+    updated_at: string;
+};
+
 export type DocumentActivity = {
     id: number;
     action: string;
