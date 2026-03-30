@@ -88,3 +88,57 @@ test('terminal states reject further transitions', function (): void {
     expect($document->fresh()->status)->toBe(DocumentStatus::Approved)
         ->and(ProcessingEvent::query()->count())->toBe(0);
 });
+
+test('ready for review documents can be rejected', function (): void {
+    Event::fake([DocumentProcessingEvent::class]);
+    $document = createProcessingDocument(DocumentStatus::ReadyForReview);
+
+    $updatedDocument = app(DocumentStatusTransitionService::class)->transition(
+        document: $document,
+        toStatus: DocumentStatus::Rejected,
+        consumerName: 'manual-review',
+    );
+
+    expect($updatedDocument->status)->toBe(DocumentStatus::Rejected)
+        ->and(ProcessingEvent::query()->first()?->status_to)->toBe(DocumentStatus::Rejected->value);
+});
+
+test('reviewed documents can be rejected', function (): void {
+    Event::fake([DocumentProcessingEvent::class]);
+    $document = createProcessingDocument(DocumentStatus::Reviewed);
+
+    $updatedDocument = app(DocumentStatusTransitionService::class)->transition(
+        document: $document,
+        toStatus: DocumentStatus::Rejected,
+        consumerName: 'manual-review',
+    );
+
+    expect($updatedDocument->status)->toBe(DocumentStatus::Rejected)
+        ->and(ProcessingEvent::query()->first()?->status_from)->toBe(DocumentStatus::Reviewed->value);
+});
+
+test('ready for review documents cannot be approved directly', function (): void {
+    Event::fake([DocumentProcessingEvent::class]);
+    $document = createProcessingDocument(DocumentStatus::ReadyForReview);
+
+    expect(fn () => app(DocumentStatusTransitionService::class)->transition(
+        document: $document,
+        toStatus: DocumentStatus::Approved,
+    ))->toThrow(InvalidArgumentException::class);
+
+    expect($document->fresh()->status)->toBe(DocumentStatus::ReadyForReview)
+        ->and(ProcessingEvent::query()->count())->toBe(0);
+});
+
+test('rejected documents are terminal', function (): void {
+    Event::fake([DocumentProcessingEvent::class]);
+    $document = createProcessingDocument(DocumentStatus::Rejected);
+
+    expect(fn () => app(DocumentStatusTransitionService::class)->transition(
+        document: $document,
+        toStatus: DocumentStatus::Approved,
+    ))->toThrow(InvalidArgumentException::class);
+
+    expect($document->fresh()->status)->toBe(DocumentStatus::Rejected)
+        ->and(ProcessingEvent::query()->count())->toBe(0);
+});

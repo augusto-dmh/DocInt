@@ -248,6 +248,123 @@ test('document show page marks non pdf documents as unsupported for inline previ
         );
 });
 
+test('document can be marked as reviewed from ready for review', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->readyForReview()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.review', $document))
+        ->assertRedirect(route('documents.show', $document));
+
+    expect($document->fresh()->status->value)->toBe('reviewed')
+        ->and(AuditLog::query()
+            ->where('auditable_type', Document::class)
+            ->where('auditable_id', $document->id)
+            ->where('action', 'reviewed')
+            ->exists())->toBeTrue();
+});
+
+test('document can be rejected from ready for review', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->readyForReview()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.reject', $document))
+        ->assertRedirect(route('documents.show', $document));
+
+    expect($document->fresh()->status->value)->toBe('rejected')
+        ->and(AuditLog::query()
+            ->where('auditable_type', Document::class)
+            ->where('auditable_id', $document->id)
+            ->where('action', 'rejected')
+            ->exists())->toBeTrue();
+});
+
+test('document can be approved from reviewed', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->reviewed()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.approve', $document))
+        ->assertRedirect(route('documents.show', $document));
+
+    expect($document->fresh()->status->value)->toBe('approved')
+        ->and(AuditLog::query()
+            ->where('auditable_type', Document::class)
+            ->where('auditable_id', $document->id)
+            ->where('action', 'approved')
+            ->exists())->toBeTrue();
+});
+
+test('document can be rejected from reviewed', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->reviewed()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.reject', $document))
+        ->assertRedirect(route('documents.show', $document));
+
+    expect($document->fresh()->status->value)->toBe('rejected')
+        ->and(AuditLog::query()
+            ->where('auditable_type', Document::class)
+            ->where('auditable_id', $document->id)
+            ->where('action', 'rejected')
+            ->exists())->toBeTrue();
+});
+
+test('document review transition validation fails for invalid status', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+        'status' => 'uploaded',
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.review', $document))
+        ->assertSessionHasErrors(['status']);
+
+    expect($document->fresh()->status->value)->toBe('uploaded');
+});
+
+test('document cannot be approved directly from ready for review', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->readyForReview()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.approve', $document))
+        ->assertSessionHasErrors(['status']);
+
+    expect($document->fresh()->status->value)->toBe('ready_for_review');
+});
+
 test('document preview streams inline pdf content for authorized tenant users', function (): void {
     [$tenant, $user, $matter] = createDocumentCrudTestContext();
     Storage::fake('s3');

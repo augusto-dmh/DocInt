@@ -43,6 +43,7 @@ test('seeder creates the expected roles and permissions', function (): void {
         'create documents',
         'edit documents',
         'delete documents',
+        'review documents',
         'approve documents',
         'manage users',
         'manage tenant',
@@ -96,7 +97,7 @@ test('shared auth payload exposes tenant scoped roles and permissions', function
         ->assertInertia(fn (Assert $page) => $page
             ->where('auth.isSuperAdmin', false)
             ->where('auth.roles', ['tenant-admin'])
-            ->has('auth.permissions', 15)
+            ->has('auth.permissions', 16)
             ->where('tenantContext.canSelect', false)
         );
 });

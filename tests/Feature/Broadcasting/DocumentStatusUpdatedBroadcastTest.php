@@ -127,3 +127,38 @@ test('document status transitions dispatch a document status updated broadcast e
             ];
     });
 });
+
+test('rejected review transitions dispatch a document status updated broadcast event', function (): void {
+    Event::fake([DocumentStatusUpdated::class]);
+
+    [$tenant, $matter] = createBroadcastDocumentContext();
+
+    tenancy()->initialize($tenant);
+
+    $document = Document::factory()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'status' => 'reviewed',
+        'processing_trace_id' => (string) Str::uuid(),
+    ]);
+
+    app(DocumentStatusTransitionService::class)->transition(
+        document: $document,
+        toStatus: 'rejected',
+        consumerName: 'manual-review',
+    );
+
+    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $tenant): bool {
+        $payload = $event->broadcastWith();
+
+        return $payload['tenant_id'] === $tenant->id
+            && $payload['document_id'] === $document->id
+            && $payload['from_status'] === 'reviewed'
+            && $payload['to_status'] === 'rejected'
+            && $payload['trace_id'] === $document->processing_trace_id
+            && broadcastChannelNames($event) === [
+                "private-tenants.{$tenant->id}.documents",
+                "private-documents.{$document->id}",
+            ];
+    });
+});
