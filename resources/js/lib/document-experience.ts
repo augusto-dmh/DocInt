@@ -72,6 +72,7 @@ export function documentStatusToneClass(status: DocumentStatusLike): string {
 
     if (
         status === 'failed' ||
+        status === 'rejected' ||
         status === 'scan_failed' ||
         status === 'extraction_failed' ||
         status === 'classification_failed'

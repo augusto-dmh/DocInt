@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
 import MatterController from '@/actions/App/Http/Controllers/MatterController';
@@ -34,12 +34,18 @@ const props = defineProps<{
 
 const permissions = usePage().props.auth.permissions;
 const canEditDocuments = permissions.includes('edit documents');
+const canReviewDocuments = permissions.includes('review documents');
+const canApproveDocuments = permissions.includes('approve documents');
 const isReloadingDocument = ref(false);
 const hasPendingDocumentReload = ref(false);
+const reviewForm = useForm({});
+const approveForm = useForm({});
+const rejectForm = useForm({});
 const downloadUrl = computed(() =>
     DocumentController.download.url(props.document),
 );
 const preview = computed(() => props.reviewWorkspace.preview);
+const currentStatus = computed(() => props.document.status);
 const extractedDataPayloadEntries = computed(() =>
     objectEntries(props.extractedData?.payload),
 );
@@ -113,6 +119,18 @@ function activityLabel(action: string): string {
         return 'Document downloaded';
     }
 
+    if (action === 'reviewed') {
+        return 'Document reviewed';
+    }
+
+    if (action === 'approved') {
+        return 'Document approved';
+    }
+
+    if (action === 'rejected') {
+        return 'Document rejected';
+    }
+
     if (action === 'deleted') {
         return 'Document deleted';
     }
@@ -160,6 +178,39 @@ function formatConfidence(value: number | null): string | null {
     }
 
     return `${(value * 100).toFixed(1)}% confidence`;
+}
+
+function canMarkReviewed(): boolean {
+    return canReviewDocuments && currentStatus.value === 'ready_for_review';
+}
+
+function canRejectDocument(): boolean {
+    return (
+        canReviewDocuments &&
+        ['ready_for_review', 'reviewed'].includes(currentStatus.value)
+    );
+}
+
+function canApproveDocument(): boolean {
+    return canApproveDocuments && currentStatus.value === 'reviewed';
+}
+
+function markReviewed(): void {
+    reviewForm.submit(DocumentController.review(props.document), {
+        preserveScroll: true,
+    });
+}
+
+function approveDocument(): void {
+    approveForm.submit(DocumentController.approve(props.document), {
+        preserveScroll: true,
+    });
+}
+
+function rejectDocument(): void {
+    rejectForm.submit(DocumentController.reject(props.document), {
+        preserveScroll: true,
+    });
 }
 
 function reloadDocument(): void {
@@ -223,6 +274,33 @@ useDocumentChannel({
 
             <template #actions>
                 <Button
+                    v-if="canMarkReviewed()"
+                    variant="outline"
+                    :disabled="reviewForm.processing"
+                    @click="markReviewed"
+                >
+                    {{ reviewForm.processing ? 'Marking...' : 'Mark reviewed' }}
+                </Button>
+
+                <Button
+                    v-if="canRejectDocument()"
+                    variant="destructive"
+                    :disabled="rejectForm.processing"
+                    @click="rejectDocument"
+                >
+                    {{ rejectForm.processing ? 'Rejecting...' : 'Reject' }}
+                </Button>
+
+                <Button
+                    v-if="canApproveDocument()"
+                    class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
+                    :disabled="approveForm.processing"
+                    @click="approveDocument"
+                >
+                    {{ approveForm.processing ? 'Approving...' : 'Approve' }}
+                </Button>
+
+                <Button
                     as-child
                     class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
                 >
@@ -237,6 +315,21 @@ useDocumentChannel({
                     </Link>
                 </Button>
             </template>
+
+            <p
+                v-if="
+                    reviewForm.errors.status ||
+                    approveForm.errors.status ||
+                    rejectForm.errors.status
+                "
+                class="mt-4 text-sm text-destructive"
+            >
+                {{
+                    reviewForm.errors.status ??
+                    approveForm.errors.status ??
+                    rejectForm.errors.status
+                }}
+            </p>
 
             <DocumentExperienceSurface
                 :document-experience="documentExperience"
