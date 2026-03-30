@@ -51,4 +51,14 @@ class DocumentPolicy
     {
         return $user->can('manage users');
     }
+
+    public function comment(User $user, Document $document): bool
+    {
+        return $user->can('edit documents');
+    }
+
+    public function moderateComments(User $user, Document $document): bool
+    {
+        return $user->can('approve documents');
+    }
 }

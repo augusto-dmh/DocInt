@@ -93,15 +93,27 @@ export type DocumentAnnotation = {
     is_owner: boolean;
 };
 
+export type DocumentComment = {
+    id: number;
+    parent_id: number | null;
+    body: string;
+    created_at: string;
+    updated_at: string;
+    user: Pick<User, 'id' | 'name'> | null;
+};
+
 export type DocumentReviewerOption = Pick<User, 'id' | 'name'>;
 
 export type DocumentReviewWorkspace = {
     preview: DocumentPreview;
     annotations: DocumentAnnotation[];
+    comments: DocumentComment[];
     availableReviewers: DocumentReviewerOption[];
     permissions: {
         canAnnotate: boolean;
         canAssignReviewer: boolean;
+        canComment: boolean;
+        canModerateComments: boolean;
     };
 };
 
@@ -147,6 +159,16 @@ export type DocumentStatusUpdatedPayload = {
     from_status: string | null;
     to_status: string;
     trace_id: string | null;
+    occurred_at: string;
+};
+
+export type DocumentCommentUpdatedPayload = {
+    tenant_id: string;
+    document_id: number;
+    action: 'created' | 'updated' | 'deleted';
+    comment: DocumentComment | null;
+    comment_id: number | null;
+    activity: DocumentActivity | null;
     occurred_at: string;
 };
 

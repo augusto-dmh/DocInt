@@ -11,6 +11,7 @@ use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\DocumentAnnotation;
 use App\Models\DocumentClassification;
+use App\Models\DocumentComment;
 use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
@@ -153,6 +154,12 @@ class DocumentController extends Controller
                         $request->user()?->id,
                     ))
                     ->values(),
+                'comments' => $document->comments()
+                    ->with('user:id,name')
+                    ->oldest()
+                    ->get()
+                    ->map(fn (DocumentComment $comment): array => DocumentReviewWorkspacePresenter::comment($comment))
+                    ->values(),
                 'availableReviewers' => $request->user()?->can('assignReviewer', $document) === true
                     ? $this->availableReviewersForAssignment($document)
                     : [],
@@ -160,6 +167,8 @@ class DocumentController extends Controller
                     'canAnnotate' => $request->user()?->can('annotate', $document) === true
                         && DocumentReviewWorkspacePresenter::supportsInlinePreview($document),
                     'canAssignReviewer' => $request->user()?->can('assignReviewer', $document) === true,
+                    'canComment' => $request->user()?->can('comment', $document) === true,
+                    'canModerateComments' => $request->user()?->can('moderateComments', $document) === true,
                 ],
             ],
             'extractedData' => fn () => $this->formatExtractedData(
