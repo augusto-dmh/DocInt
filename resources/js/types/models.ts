@@ -70,8 +70,33 @@ export type DocumentPreview = {
     fileName: string;
 };
 
+export type DocumentAnnotationType = 'highlight' | 'comment' | 'note';
+
+export type DocumentAnnotationCoordinates = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+};
+
+export type DocumentAnnotation = {
+    id: number;
+    type: DocumentAnnotationType;
+    page_number: number;
+    coordinates: DocumentAnnotationCoordinates;
+    content: string | null;
+    created_at: string;
+    updated_at: string;
+    user: Pick<User, 'id' | 'name'> | null;
+    is_owner: boolean;
+};
+
 export type DocumentReviewWorkspace = {
     preview: DocumentPreview;
+    annotations: DocumentAnnotation[];
+    permissions: {
+        canAnnotate: boolean;
+    };
 };
 
 export type DocumentExtractedData = {
@@ -95,6 +120,7 @@ export type DocumentClassificationSummary = {
 export type DocumentActivity = {
     id: number;
     action: string;
+    details: string | null;
     created_at: string;
     user: Pick<User, 'id' | 'name'> | null;
     ip_address: string | null;
