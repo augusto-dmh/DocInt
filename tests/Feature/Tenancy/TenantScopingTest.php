@@ -2,6 +2,7 @@
 
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\DocumentAnnotation;
 use App\Models\Matter;
 use App\Models\Tenant;
 use App\Models\User;
@@ -192,5 +193,43 @@ test('document routes deny cross tenant access', function (): void {
 
     $this->actingAs($userA)
         ->get(route('documents.download', $tenantBDocument))
+        ->assertNotFound();
+});
+
+test('document annotation routes deny cross tenant access', function (): void {
+    [$tenantA, $userA] = createTenantUserWithRole();
+    Client::factory()->create(['tenant_id' => $tenantA->id]);
+
+    $tenantB = Tenant::factory()->create();
+    $tenantBClient = Client::factory()->create(['tenant_id' => $tenantB->id]);
+    $tenantBMatter = Matter::factory()->create([
+        'tenant_id' => $tenantB->id,
+        'client_id' => $tenantBClient->id,
+    ]);
+    $tenantBDocument = Document::factory()->create([
+        'tenant_id' => $tenantB->id,
+        'matter_id' => $tenantBMatter->id,
+        'mime_type' => 'application/pdf',
+    ]);
+    $tenantBAnnotation = DocumentAnnotation::factory()->create([
+        'tenant_id' => $tenantB->id,
+        'document_id' => $tenantBDocument->id,
+    ]);
+
+    $this->actingAs($userA)
+        ->post(route('documents.annotations.store', $tenantBDocument), [
+            'type' => 'highlight',
+            'page_number' => 1,
+            'coordinates' => [
+                'x' => 0.1,
+                'y' => 0.1,
+                'width' => 0.2,
+                'height' => 0.1,
+            ],
+        ])
+        ->assertNotFound();
+
+    $this->actingAs($userA)
+        ->delete(route('documents.annotations.destroy', [$tenantBDocument, $tenantBAnnotation]))
         ->assertNotFound();
 });

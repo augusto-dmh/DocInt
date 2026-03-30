@@ -2,6 +2,7 @@
 
 use App\Models\Client;
 use App\Models\Document;
+use App\Models\DocumentAnnotation;
 use App\Models\Matter;
 use App\Models\Tenant;
 use App\Models\User;
@@ -142,6 +143,40 @@ describe('tenant-admin', function (): void {
             ->post(route('documents.reject', $reviewedDocumentAfterReview))
             ->assertRedirect(route('documents.show', $readyForReviewDocument));
     });
+
+    test('can create annotations and delete another users annotation', function (): void {
+        [$tenant, $user, $matter, $document] = createDocumentAuthorizationContext('tenant-admin');
+
+        $author = User::factory()->forTenant($tenant)->create();
+        setPermissionsTeamId($tenant->id);
+        $author->assignRole('associate');
+        setPermissionsTeamId(null);
+
+        $annotation = DocumentAnnotation::factory()->create([
+            'tenant_id' => $tenant->id,
+            'document_id' => $document->id,
+            'user_id' => $author->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->postJson(route('documents.annotations.store', $document), [
+                'type' => 'highlight',
+                'page_number' => 1,
+                'coordinates' => [
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.2,
+                    'height' => 0.1,
+                ],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->deleteJson(route('documents.annotations.destroy', [$document, $annotation]))
+            ->assertSuccessful();
+    });
 });
 
 describe('partner', function (): void {
@@ -226,6 +261,41 @@ describe('partner', function (): void {
             ->post(route('documents.reject', $reviewedDocumentAfterReview))
             ->assertRedirect(route('documents.show', $readyForReviewDocument));
     });
+
+    test('can create annotations and delete another users annotation', function (): void {
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('partner');
+
+        $author = User::factory()->forTenant($tenant)->create();
+        setPermissionsTeamId($tenant->id);
+        $author->assignRole('associate');
+        setPermissionsTeamId(null);
+
+        $annotation = DocumentAnnotation::factory()->create([
+            'tenant_id' => $tenant->id,
+            'document_id' => $document->id,
+            'user_id' => $author->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->postJson(route('documents.annotations.store', $document), [
+                'type' => 'comment',
+                'page_number' => 1,
+                'coordinates' => [
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.2,
+                    'height' => 0.1,
+                ],
+                'content' => 'Needs closer review.',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->deleteJson(route('documents.annotations.destroy', [$document, $annotation]))
+            ->assertSuccessful();
+    });
 });
 
 describe('associate', function (): void {
@@ -309,6 +379,52 @@ describe('associate', function (): void {
                 'tenant_id' => $tenant->id,
                 'matter_id' => $matter->id,
             ])))
+            ->assertForbidden();
+    });
+
+    test('can create annotations and delete only own annotations', function (): void {
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('associate');
+
+        $ownAnnotation = DocumentAnnotation::factory()->create([
+            'tenant_id' => $tenant->id,
+            'document_id' => $document->id,
+            'user_id' => $user->id,
+        ]);
+
+        $otherUser = User::factory()->forTenant($tenant)->create();
+        setPermissionsTeamId($tenant->id);
+        $otherUser->assignRole('partner');
+        setPermissionsTeamId(null);
+
+        $otherAnnotation = DocumentAnnotation::factory()->create([
+            'tenant_id' => $tenant->id,
+            'document_id' => $document->id,
+            'user_id' => $otherUser->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->postJson(route('documents.annotations.store', $document), [
+                'type' => 'note',
+                'page_number' => 1,
+                'coordinates' => [
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.2,
+                    'height' => 0.1,
+                ],
+                'content' => 'Flag this region.',
+            ])
+            ->assertCreated();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->deleteJson(route('documents.annotations.destroy', [$document, $ownAnnotation]))
+            ->assertSuccessful();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->deleteJson(route('documents.annotations.destroy', [$document, $otherAnnotation]))
             ->assertForbidden();
     });
 });
@@ -399,6 +515,40 @@ describe('client role', function (): void {
         $this->actingAs($user)
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
             ->post(route('documents.reject', $readyForReviewDocument))
+            ->assertForbidden();
+    });
+
+    test('cannot create annotations or delete another users annotation', function (): void {
+        [$tenant, $user, , $document] = createDocumentAuthorizationContext('client');
+
+        $otherUser = User::factory()->forTenant($tenant)->create();
+        setPermissionsTeamId($tenant->id);
+        $otherUser->assignRole('associate');
+        setPermissionsTeamId(null);
+
+        $annotation = DocumentAnnotation::factory()->create([
+            'tenant_id' => $tenant->id,
+            'document_id' => $document->id,
+            'user_id' => $otherUser->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->postJson(route('documents.annotations.store', $document), [
+                'type' => 'highlight',
+                'page_number' => 1,
+                'coordinates' => [
+                    'x' => 0.1,
+                    'y' => 0.1,
+                    'width' => 0.2,
+                    'height' => 0.1,
+                ],
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->deleteJson(route('documents.annotations.destroy', [$document, $annotation]))
             ->assertForbidden();
     });
 });

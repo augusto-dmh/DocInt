@@ -157,6 +157,8 @@ test('document show page can be rendered and logs a view event', function (): vo
             ->where('reviewWorkspace.preview.url', route('documents.preview', $document))
             ->where('reviewWorkspace.preview.fileName', $document->file_name)
             ->where('reviewWorkspace.preview.mimeType', 'application/pdf')
+            ->where('reviewWorkspace.permissions.canAnnotate', true)
+            ->has('reviewWorkspace.annotations', 0)
             ->where('extractedData', null)
             ->where('classification', null)
             ->has('recentActivity', 1)
@@ -246,6 +248,8 @@ test('document show page marks non pdf documents as unsupported for inline previ
             ->where('reviewWorkspace.preview.url', null)
             ->where('reviewWorkspace.preview.fileName', 'notes.txt')
             ->where('reviewWorkspace.preview.mimeType', 'text/plain')
+            ->where('reviewWorkspace.permissions.canAnnotate', false)
+            ->has('reviewWorkspace.annotations', 0)
         );
 });
 
