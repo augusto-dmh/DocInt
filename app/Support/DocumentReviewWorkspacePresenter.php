@@ -5,6 +5,8 @@ namespace App\Support;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\DocumentAnnotation;
+use App\Models\DocumentComment;
+use Illuminate\Support\Str;
 
 class DocumentReviewWorkspacePresenter
 {
@@ -76,6 +78,33 @@ class DocumentReviewWorkspacePresenter
     /**
      * @return array{
      *     id: int,
+     *     parent_id: int|null,
+     *     body: string,
+     *     created_at: string,
+     *     updated_at: string,
+     *     user: array{id: int, name: string}|null
+     * }
+     */
+    public static function comment(DocumentComment $comment): array
+    {
+        return [
+            'id' => $comment->id,
+            'parent_id' => $comment->parent_id,
+            'body' => $comment->body,
+            'created_at' => $comment->created_at->toISOString(),
+            'updated_at' => $comment->updated_at->toISOString(),
+            'user' => $comment->user
+                ? [
+                    'id' => $comment->user->id,
+                    'name' => $comment->user->name,
+                ]
+                : null,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
      *     action: string,
      *     details: string|null,
      *     created_at: string,
@@ -126,6 +155,19 @@ class DocumentReviewWorkspacePresenter
                 ucfirst(str_replace('_', ' ', $annotationType)),
                 $pageNumber,
             );
+        }
+
+        if (in_array($action, ['comment_created', 'comment_updated', 'comment_deleted'], true)) {
+            $bodyExcerpt = is_string($metadata['body_excerpt'] ?? null)
+                ? $metadata['body_excerpt']
+                : null;
+            $prefix = is_numeric($metadata['parent_id'] ?? null) ? 'Reply' : 'Comment';
+
+            if ($bodyExcerpt === null || $bodyExcerpt === '') {
+                return $prefix;
+            }
+
+            return sprintf('%s: %s', $prefix, Str::limit($bodyExcerpt, 80));
         }
 
         if ($action !== 'reviewer_assignment_updated') {

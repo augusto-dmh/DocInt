@@ -76,6 +76,11 @@ class Document extends Model
         return $this->hasMany(DocumentAnnotation::class);
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(DocumentComment::class);
+    }
+
     public function extractedData(): HasOne
     {
         return $this->hasOne(ExtractedData::class);

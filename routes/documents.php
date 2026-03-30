@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DocumentAnnotationController;
+use App\Http\Controllers\DocumentCommentController;
 use App\Http\Controllers\DocumentController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,14 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function (): void {
         ->name('documents.annotations.store');
     Route::delete('documents/{document}/annotations/{annotation}', [DocumentAnnotationController::class, 'destroy'])
         ->name('documents.annotations.destroy');
+    Route::get('documents/{document}/comments', [DocumentCommentController::class, 'index'])
+        ->name('documents.comments.index');
+    Route::post('documents/{document}/comments', [DocumentCommentController::class, 'store'])
+        ->name('documents.comments.store');
+    Route::patch('documents/{document}/comments/{comment}', [DocumentCommentController::class, 'update'])
+        ->name('documents.comments.update');
+    Route::delete('documents/{document}/comments/{comment}', [DocumentCommentController::class, 'destroy'])
+        ->name('documents.comments.destroy');
 
     Route::resource('documents', DocumentController::class)
         ->except(['create', 'store']);
