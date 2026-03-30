@@ -180,6 +180,12 @@ function formatConfidence(value: number | null): string | null {
     return `${(value * 100).toFixed(1)}% confidence`;
 }
 
+function formStatusError(form: typeof reviewForm): string | null {
+    const errors = form.errors as Record<string, string | undefined>;
+
+    return errors.status ?? null;
+}
+
 function canMarkReviewed(): boolean {
     return canReviewDocuments && currentStatus.value === 'ready_for_review';
 }
@@ -283,21 +289,21 @@ useDocumentChannel({
                 </Button>
 
                 <Button
-                    v-if="canRejectDocument()"
-                    variant="destructive"
-                    :disabled="rejectForm.processing"
-                    @click="rejectDocument"
-                >
-                    {{ rejectForm.processing ? 'Rejecting...' : 'Reject' }}
-                </Button>
-
-                <Button
                     v-if="canApproveDocument()"
                     class="bg-[var(--doc-seal)] text-white hover:bg-primary/90"
                     :disabled="approveForm.processing"
                     @click="approveDocument"
                 >
                     {{ approveForm.processing ? 'Approving...' : 'Approve' }}
+                </Button>
+
+                <Button
+                    v-if="canRejectDocument()"
+                    variant="destructive"
+                    :disabled="rejectForm.processing"
+                    @click="rejectDocument"
+                >
+                    {{ rejectForm.processing ? 'Rejecting...' : 'Reject' }}
                 </Button>
 
                 <Button
@@ -318,16 +324,16 @@ useDocumentChannel({
 
             <p
                 v-if="
-                    reviewForm.errors.status ||
-                    approveForm.errors.status ||
-                    rejectForm.errors.status
+                    formStatusError(reviewForm) ||
+                    formStatusError(approveForm) ||
+                    formStatusError(rejectForm)
                 "
                 class="mt-4 text-sm text-destructive"
             >
                 {{
-                    reviewForm.errors.status ??
-                    approveForm.errors.status ??
-                    rejectForm.errors.status
+                    formStatusError(reviewForm) ??
+                    formStatusError(approveForm) ??
+                    formStatusError(rejectForm)
                 }}
             </p>
 
