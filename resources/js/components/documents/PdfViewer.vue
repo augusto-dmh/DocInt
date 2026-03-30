@@ -9,8 +9,14 @@ import {
     ref,
     watch,
 } from 'vue';
+import AnnotationLayer from '@/components/documents/AnnotationLayer.vue';
 import DocumentExperienceSurface from '@/components/documents/DocumentExperienceSurface.vue';
-import type { DocumentExperienceGuardrails } from '@/types';
+import type {
+    DocumentAnnotation,
+    DocumentAnnotationCoordinates,
+    DocumentAnnotationType,
+    DocumentExperienceGuardrails,
+} from '@/types';
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -18,7 +24,18 @@ type Props = {
     documentExperience: DocumentExperienceGuardrails;
     src: string;
     title: string;
+    annotations: DocumentAnnotation[];
+    canAnnotate?: boolean;
+    canDeleteAnyAnnotation?: boolean;
+    mutationPending?: boolean;
     delay?: 1 | 2 | null;
+};
+
+type AnnotationCreatePayload = {
+    type: DocumentAnnotationType;
+    page_number: number;
+    coordinates: DocumentAnnotationCoordinates;
+    content: string | null;
 };
 
 type PdfDocumentHandle = {
@@ -46,14 +63,23 @@ type PdfLoadingTask = {
 };
 
 const props = withDefaults(defineProps<Props>(), {
+    canAnnotate: false,
+    canDeleteAnyAnnotation: false,
+    mutationPending: false,
     delay: null,
 });
+
+const emit = defineEmits<{
+    (event: 'create-annotation', payload: AnnotationCreatePayload): void;
+    (event: 'delete-annotation', annotation: DocumentAnnotation): void;
+}>();
 
 const loading = ref(true);
 const errorMessage = ref<string | null>(null);
 const zoomMultiplier = ref(1);
 const pageNumbers = ref<number[]>([]);
 const isFullscreen = ref(false);
+const activeAnnotationTool = ref<DocumentAnnotationType | null>(null);
 const viewerRoot = ref<HTMLDivElement | null>(null);
 const viewportElement = ref<HTMLDivElement | null>(null);
 const fitScale = ref(1);
@@ -72,6 +98,15 @@ const pageCountLabel = computed(() =>
         ? `${pageNumbers.value.length} pages`
         : 'Loading',
 );
+const annotationTools: Array<{
+    label: string;
+    value: DocumentAnnotationType | null;
+}> = [
+    { label: 'Browse', value: null },
+    { label: 'Highlight', value: 'highlight' },
+    { label: 'Comment', value: 'comment' },
+    { label: 'Note', value: 'note' },
+];
 
 function setCanvasRef(
     pageNumber: number,
@@ -249,6 +284,24 @@ function handleFullscreenChange(): void {
     void syncFullscreenState();
 }
 
+function annotationsForPage(pageNumber: number): DocumentAnnotation[] {
+    return props.annotations.filter(
+        (annotation) => annotation.page_number === pageNumber,
+    );
+}
+
+function selectAnnotationTool(tool: DocumentAnnotationType | null): void {
+    activeAnnotationTool.value = tool;
+}
+
+function emitCreateAnnotation(payload: AnnotationCreatePayload): void {
+    emit('create-annotation', payload);
+}
+
+function emitDeleteAnnotation(annotation: DocumentAnnotation): void {
+    emit('delete-annotation', annotation);
+}
+
 onMounted(async () => {
     await loadDocument();
 });
@@ -329,6 +382,32 @@ onBeforeUnmount(async () => {
                     <span class="doc-subtle hidden text-xs sm:inline">
                         {{ pageCountLabel }}
                     </span>
+
+                    <div
+                        v-if="canAnnotate"
+                        class="flex flex-wrap items-center gap-1 rounded-full border border-[var(--doc-border)]/80 bg-[hsl(38_30%_97%/0.85)] px-1.5 py-1"
+                    >
+                        <span
+                            class="doc-subtle px-2 text-[11px] font-semibold tracking-[0.12em] uppercase"
+                        >
+                            Annotate
+                        </span>
+                        <button
+                            v-for="tool in annotationTools"
+                            :key="tool.label"
+                            type="button"
+                            class="rounded-full px-3 py-1 text-xs font-semibold transition"
+                            :class="
+                                activeAnnotationTool === tool.value
+                                    ? 'bg-[var(--doc-seal)] text-white shadow-sm'
+                                    : 'text-slate-600 hover:bg-black/5'
+                            "
+                            :disabled="mutationPending"
+                            @click="selectAnnotationTool(tool.value)"
+                        >
+                            {{ tool.label }}
+                        </button>
+                    </div>
 
                     <button
                         type="button"
@@ -430,7 +509,7 @@ onBeforeUnmount(async () => {
                             </div>
 
                             <div
-                                class="rounded-[1rem] bg-[hsl(36_22%_92%/0.52)] p-2 sm:p-3"
+                                class="relative rounded-[1rem] bg-[hsl(36_22%_92%/0.52)] p-2 sm:p-3"
                             >
                                 <canvas
                                     :ref="
@@ -441,6 +520,21 @@ onBeforeUnmount(async () => {
                                             )
                                     "
                                     class="mx-auto block rounded-[0.95rem] bg-white shadow-[0_24px_55px_hsl(24_18%_26%/0.12)]"
+                                />
+
+                                <AnnotationLayer
+                                    :annotations="
+                                        annotationsForPage(pageNumber)
+                                    "
+                                    :page-number="pageNumber"
+                                    :active-tool="activeAnnotationTool"
+                                    :can-annotate="canAnnotate"
+                                    :can-delete-any-annotation="
+                                        canDeleteAnyAnnotation
+                                    "
+                                    :busy="mutationPending"
+                                    @create="emitCreateAnnotation"
+                                    @delete="emitDeleteAnnotation"
                                 />
                             </div>
                         </article>

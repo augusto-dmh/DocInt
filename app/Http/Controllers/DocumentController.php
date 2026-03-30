@@ -7,6 +7,7 @@ use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
 use App\Models\Document;
+use App\Models\DocumentAnnotation;
 use App\Models\DocumentClassification;
 use App\Models\ExtractedData;
 use App\Models\Matter;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
+use App\Support\DocumentReviewWorkspacePresenter;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -83,7 +85,7 @@ class DocumentController extends Controller
         $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
-        abort_unless($this->supportsInlinePreview($document), 404);
+        abort_unless(DocumentReviewWorkspacePresenter::supportsInlinePreview($document), 404);
 
         $disk = Storage::disk('s3');
 
@@ -130,7 +132,7 @@ class DocumentController extends Controller
                 ->latest()
                 ->limit(8)
                 ->get()
-                ->map(fn (AuditLog $auditLog): array => $this->formatAuditLog($auditLog))
+                ->map(fn (AuditLog $auditLog): array => DocumentReviewWorkspacePresenter::auditLog($auditLog))
                 ->values(),
             'processingActivity' => fn () => $document->processingEvents()
                 ->latest()
@@ -139,7 +141,20 @@ class DocumentController extends Controller
                 ->map(fn (ProcessingEvent $processingEvent): array => $this->formatProcessingEvent($processingEvent))
                 ->values(),
             'reviewWorkspace' => fn (): array => [
-                'preview' => $this->formatPreview($document),
+                'preview' => DocumentReviewWorkspacePresenter::preview($document),
+                'annotations' => $document->annotations()
+                    ->with('user:id,name')
+                    ->latest()
+                    ->get()
+                    ->map(fn (DocumentAnnotation $annotation): array => DocumentReviewWorkspacePresenter::annotation(
+                        $annotation,
+                        $request->user()?->id,
+                    ))
+                    ->values(),
+                'permissions' => [
+                    'canAnnotate' => $request->user()?->can('annotate', $document) === true
+                        && DocumentReviewWorkspacePresenter::supportsInlinePreview($document),
+                ],
             ],
             'extractedData' => fn () => $this->formatExtractedData(
                 $document->extractedData()->first(),
@@ -270,44 +285,6 @@ class DocumentController extends Controller
     }
 
     /**
-     * @return array{supported: bool, url: string|null, mimeType: string|null, fileName: string}
-     */
-    protected function formatPreview(Document $document): array
-    {
-        $supported = $this->supportsInlinePreview($document);
-
-        return [
-            'supported' => $supported,
-            'url' => $supported ? route('documents.preview', $document) : null,
-            'mimeType' => $document->mime_type,
-            'fileName' => $document->file_name,
-        ];
-    }
-
-    /**
-     * @return array{id: int, action: string, created_at: string, user: array{id: int, name: string}|null, ip_address: string|null}
-     */
-    protected function formatAuditLog(AuditLog $auditLog): array
-    {
-        $metadata = is_array($auditLog->metadata) ? $auditLog->metadata : [];
-
-        return [
-            'id' => $auditLog->id,
-            'action' => $auditLog->action,
-            'created_at' => $auditLog->created_at->toISOString(),
-            'user' => $auditLog->user
-                ? [
-                    'id' => $auditLog->user->id,
-                    'name' => $auditLog->user->name,
-                ]
-                : null,
-            'ip_address' => is_string($metadata['ip_address'] ?? null)
-                ? $metadata['ip_address']
-                : null,
-        ];
-    }
-
-    /**
      * @return array{id: int, consumer_name: string, status_from: string|null, status_to: string|null, event: string, created_at: string}
      */
     protected function formatProcessingEvent(ProcessingEvent $processingEvent): array
@@ -372,15 +349,6 @@ class DocumentController extends Controller
             'created_at' => $classification->created_at->toISOString(),
             'updated_at' => $classification->updated_at->toISOString(),
         ];
-    }
-
-    protected function supportsInlinePreview(Document $document): bool
-    {
-        if ($document->mime_type === 'application/pdf') {
-            return true;
-        }
-
-        return str_ends_with(strtolower($document->file_name), '.pdf');
     }
 
     protected function transitionForManualReview(
