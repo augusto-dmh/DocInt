@@ -8,6 +8,7 @@ use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Http\UploadedFile;
@@ -360,6 +361,44 @@ test('document cannot be approved directly from ready for review', function (): 
     $this->actingAs($user)
         ->withHeaders(['X-Tenant-ID' => $tenant->id])
         ->post(route('documents.approve', $document))
+        ->assertSessionHasErrors(['status']);
+
+    expect($document->fresh()->status->value)->toBe('ready_for_review');
+});
+
+test('document cannot be rejected after it is approved', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->approved()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.reject', $document))
+        ->assertSessionHasErrors(['status']);
+
+    expect($document->fresh()->status->value)->toBe('approved');
+});
+
+test('document review transitions surface concurrent transition failures as validation errors', function (): void {
+    [$tenant, $user, $matter] = createDocumentCrudTestContext();
+    $document = Document::factory()->readyForReview()->create([
+        'tenant_id' => $tenant->id,
+        'matter_id' => $matter->id,
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->mock(DocumentStatusTransitionService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('transition')
+            ->once()
+            ->andThrow(new \InvalidArgumentException('Transition rejected by concurrent worker'));
+    });
+
+    $this->actingAs($user)
+        ->withHeaders(['X-Tenant-ID' => $tenant->id])
+        ->post(route('documents.review', $document))
         ->assertSessionHasErrors(['status']);
 
     expect($document->fresh()->status->value)->toBe('ready_for_review');

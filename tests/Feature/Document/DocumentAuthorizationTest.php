@@ -130,6 +130,8 @@ describe('tenant-admin', function (): void {
             ->post(route('documents.review', $readyForReviewDocument))
             ->assertRedirect(route('documents.show', $readyForReviewDocument));
 
+        $reviewedDocumentAfterReview = $readyForReviewDocument->fresh();
+
         $this->actingAs($user)
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
             ->post(route('documents.approve', $reviewedDocument))
@@ -137,7 +139,7 @@ describe('tenant-admin', function (): void {
 
         $this->actingAs($user)
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
-            ->post(route('documents.reject', $readyForReviewDocument->fresh()))
+            ->post(route('documents.reject', $reviewedDocumentAfterReview))
             ->assertRedirect(route('documents.show', $readyForReviewDocument));
     });
 });
@@ -212,6 +214,8 @@ describe('partner', function (): void {
             ->post(route('documents.review', $readyForReviewDocument))
             ->assertRedirect(route('documents.show', $readyForReviewDocument));
 
+        $reviewedDocumentAfterReview = $readyForReviewDocument->fresh();
+
         $this->actingAs($user)
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
             ->post(route('documents.approve', $reviewedDocument))
@@ -219,7 +223,7 @@ describe('partner', function (): void {
 
         $this->actingAs($user)
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
-            ->post(route('documents.reject', $readyForReviewDocument->fresh()))
+            ->post(route('documents.reject', $reviewedDocumentAfterReview))
             ->assertRedirect(route('documents.show', $readyForReviewDocument));
     });
 });

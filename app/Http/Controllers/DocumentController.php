@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DocumentStatus;
 use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
@@ -21,6 +22,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -165,7 +167,7 @@ class DocumentController extends Controller
         return $this->transitionForManualReview(
             request: $request,
             document: $document,
-            toStatus: 'reviewed',
+            toStatus: DocumentStatus::Reviewed,
             ability: 'review',
         );
     }
@@ -175,7 +177,7 @@ class DocumentController extends Controller
         return $this->transitionForManualReview(
             request: $request,
             document: $document,
-            toStatus: 'approved',
+            toStatus: DocumentStatus::Approved,
             ability: 'approve',
         );
     }
@@ -185,7 +187,7 @@ class DocumentController extends Controller
         return $this->transitionForManualReview(
             request: $request,
             document: $document,
-            toStatus: 'rejected',
+            toStatus: DocumentStatus::Rejected,
             ability: 'review',
         );
     }
@@ -233,7 +235,7 @@ class DocumentController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $metadata
+     * @param  array<string, mixed>  $metadata
      */
     protected function logDocumentAction(Document $document, Request $request, string $action, array $metadata = []): void
     {
@@ -384,36 +386,39 @@ class DocumentController extends Controller
     protected function transitionForManualReview(
         Request $request,
         Document $document,
-        string $toStatus,
+        DocumentStatus $toStatus,
         string $ability,
     ): RedirectResponse {
         $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize($ability, $document);
 
-        $fromStatus = $document->status->value;
+        try {
+            $transitionedDocument = $this->documentStatusTransitionService->transition(
+                document: $document,
+                toStatus: $toStatus,
+                consumerName: 'manual-review',
+                messageId: (string) Str::uuid(),
+                metadata: [
+                    'source' => 'documents.show',
+                    'actor_user_id' => $request->user()?->id,
+                ],
+            );
+        } catch (InvalidArgumentException) {
+            $currentStatus = $document->fresh()?->status;
+            $fromStatus = $currentStatus instanceof DocumentStatus
+                ? $currentStatus->value
+                : $document->status->value;
 
-        if (! $this->documentStatusTransitionService->canTransition($fromStatus, $toStatus)) {
             throw ValidationException::withMessages([
                 'status' => sprintf(
                     'Document cannot transition from [%s] to [%s].',
                     $fromStatus,
-                    $toStatus,
+                    $toStatus->value,
                 ),
             ]);
         }
 
-        $transitionedDocument = $this->documentStatusTransitionService->transition(
-            document: $document,
-            toStatus: $toStatus,
-            consumerName: 'manual-review',
-            messageId: (string) Str::uuid(),
-            metadata: [
-                'source' => 'documents.show',
-                'actor_user_id' => $request->user()?->id,
-            ],
-        );
-
-        $this->logDocumentAction($transitionedDocument, $request, $toStatus);
+        $this->logDocumentAction($transitionedDocument, $request, $toStatus->value);
 
         return to_route('documents.show', $transitionedDocument);
     }
