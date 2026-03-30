@@ -9,6 +9,7 @@ import DocumentExperienceSurface from '@/components/documents/DocumentExperience
 import DocumentStatusBadge from '@/components/documents/DocumentStatusBadge.vue';
 import EvidenceKeyValueList from '@/components/documents/EvidenceKeyValueList.vue';
 import PdfViewer from '@/components/documents/PdfViewer.vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { useDocumentChannel } from '@/composables/useDocumentChannel';
 import AppLayout from '@/layouts/AppLayout.vue';
@@ -68,6 +69,12 @@ const annotationMutationInFlight = ref(false);
 const annotationErrorMessage = ref<string | null>(null);
 const liveAnnotations = ref(props.reviewWorkspace.annotations);
 const liveRecentActivity = ref(props.recentActivity);
+const selectedReviewerId = ref(
+    props.document.assignee?.id ? String(props.document.assignee.id) : '',
+);
+const assignmentForm = useForm({
+    assigned_to: props.document.assignee?.id ?? null,
+});
 const reviewForm = useForm({});
 const approveForm = useForm({});
 const rejectForm = useForm({});
@@ -76,6 +83,17 @@ const downloadUrl = computed(() =>
 );
 const preview = computed(() => props.reviewWorkspace.preview);
 const currentStatus = computed(() => props.document.status);
+const currentAssigneeName = computed(
+    () => props.document.assignee?.name ?? 'Unassigned',
+);
+const canAssignReviewer = computed(
+    () => props.reviewWorkspace.permissions.canAssignReviewer,
+);
+const assignmentSelectionChanged = computed(
+    () =>
+        selectedReviewerId.value !==
+        (props.document.assignee?.id ? String(props.document.assignee.id) : ''),
+);
 const extractedDataPayloadEntries = computed(() =>
     objectEntries(props.extractedData?.payload),
 );
@@ -173,6 +191,10 @@ function activityLabel(action: string): string {
         return 'Annotation removed';
     }
 
+    if (action === 'reviewer_assignment_updated') {
+        return 'Reviewer assignment updated';
+    }
+
     return action.replaceAll('_', ' ');
 }
 
@@ -255,6 +277,23 @@ function rejectDocument(): void {
     rejectForm.submit(DocumentController.reject(props.document), {
         preserveScroll: true,
     });
+}
+
+function submitReviewerAssignment(): void {
+    assignmentForm.assigned_to =
+        selectedReviewerId.value === ''
+            ? null
+            : Number(selectedReviewerId.value);
+
+    assignmentForm.submit(DocumentController.assignReviewer(props.document), {
+        preserveScroll: true,
+        preserveState: true,
+    });
+}
+
+function clearReviewerAssignment(): void {
+    selectedReviewerId.value = '';
+    submitReviewerAssignment();
 }
 
 function prependRecentActivity(activity: DocumentActivity): void {
@@ -443,6 +482,14 @@ watch(
         liveRecentActivity.value = recentActivity;
     },
 );
+
+watch(
+    () => props.document.assignee?.id ?? null,
+    (assigneeId) => {
+        selectedReviewerId.value = assigneeId ? String(assigneeId) : '';
+        assignmentForm.assigned_to = assigneeId;
+    },
+);
 </script>
 
 <template>
@@ -572,13 +619,6 @@ watch(
                                 @delete-annotation="deleteAnnotation"
                             />
 
-                            <p
-                                v-if="annotationErrorMessage"
-                                class="rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-3 text-sm text-red-700"
-                            >
-                                {{ annotationErrorMessage }}
-                            </p>
-
                             <div
                                 v-else
                                 class="overflow-hidden rounded-[1.5rem] border border-dashed border-[color:var(--doc-grid-line)] bg-[linear-gradient(135deg,rgba(245,240,231,0.95),rgba(232,224,210,0.88))] p-6 sm:p-8"
@@ -648,6 +688,13 @@ watch(
                                     </Button>
                                 </div>
                             </div>
+
+                            <p
+                                v-if="annotationErrorMessage"
+                                class="mt-4 rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-3 text-sm text-red-700"
+                            >
+                                {{ annotationErrorMessage }}
+                            </p>
                         </section>
 
                         <section class="grid gap-6 lg:grid-cols-2">
@@ -718,6 +765,19 @@ watch(
                                                 document.uploader?.name ??
                                                 'System'
                                             }}
+                                        </dd>
+                                    </div>
+
+                                    <div>
+                                        <dt
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            Assigned reviewer
+                                        </dt>
+                                        <dd
+                                            class="doc-title mt-1 text-sm font-semibold"
+                                        >
+                                            {{ currentAssigneeName }}
                                         </dd>
                                     </div>
 
@@ -862,6 +922,132 @@ watch(
                     </div>
 
                     <div class="space-y-6">
+                        <section
+                            class="doc-grid-line rounded-[1.5rem] border p-5"
+                        >
+                            <div
+                                class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <h2 class="doc-title text-lg font-semibold">
+                                    Reviewer assignment
+                                </h2>
+                                <span
+                                    class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    {{
+                                        reviewWorkspace.availableReviewers
+                                            .length
+                                    }}
+                                    associates
+                                </span>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div
+                                    class="rounded-[1.25rem] border border-[color:var(--doc-grid-line)] bg-[rgba(255,255,255,0.68)] p-4"
+                                >
+                                    <p
+                                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                    >
+                                        Current reviewer
+                                    </p>
+                                    <p
+                                        class="doc-title mt-2 text-xl font-semibold"
+                                    >
+                                        {{ currentAssigneeName }}
+                                    </p>
+                                </div>
+
+                                <div
+                                    v-if="canAssignReviewer"
+                                    class="space-y-3"
+                                >
+                                    <label
+                                        class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        for="reviewer-assignee"
+                                    >
+                                        Assign to associate
+                                    </label>
+                                    <select
+                                        id="reviewer-assignee"
+                                        v-model="selectedReviewerId"
+                                        class="doc-title w-full rounded-2xl border border-[color:var(--doc-grid-line)] bg-white/80 px-4 py-3 text-sm"
+                                        :disabled="
+                                            assignmentForm.processing ||
+                                            reviewWorkspace.availableReviewers
+                                                .length === 0
+                                        "
+                                    >
+                                        <option value="">
+                                            Unassigned
+                                        </option>
+                                        <option
+                                            v-for="reviewer in reviewWorkspace.availableReviewers"
+                                            :key="reviewer.id"
+                                            :value="String(reviewer.id)"
+                                        >
+                                            {{ reviewer.name }}
+                                        </option>
+                                    </select>
+
+                                    <InputError
+                                        :message="
+                                            assignmentForm.errors.assigned_to
+                                        "
+                                    />
+
+                                    <div
+                                        class="flex flex-wrap items-center gap-3"
+                                    >
+                                        <Button
+                                            :disabled="
+                                                assignmentForm.processing ||
+                                                !assignmentSelectionChanged
+                                            "
+                                            @click="submitReviewerAssignment"
+                                        >
+                                            {{
+                                                assignmentForm.processing
+                                                    ? 'Saving...'
+                                                    : 'Save reviewer'
+                                            }}
+                                        </Button>
+
+                                        <Button
+                                            v-if="document.assignee"
+                                            variant="outline"
+                                            :disabled="
+                                                assignmentForm.processing ||
+                                                selectedReviewerId === ''
+                                            "
+                                            @click="clearReviewerAssignment"
+                                        >
+                                            Clear assignment
+                                        </Button>
+                                    </div>
+
+                                    <p
+                                        v-if="
+                                            reviewWorkspace.availableReviewers
+                                                .length === 0
+                                        "
+                                        class="doc-subtle text-sm leading-6"
+                                    >
+                                        No associates are available in this
+                                        tenant yet.
+                                    </p>
+                                </div>
+
+                                <p
+                                    v-else
+                                    class="doc-subtle text-sm leading-6"
+                                >
+                                    Only users who can manage reviewers can
+                                    change the assignment.
+                                </p>
+                            </div>
+                        </section>
+
                         <section
                             class="doc-grid-line rounded-[1.5rem] border p-5"
                         >
