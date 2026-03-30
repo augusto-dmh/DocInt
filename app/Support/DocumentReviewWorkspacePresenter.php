@@ -109,25 +109,48 @@ class DocumentReviewWorkspacePresenter
      */
     protected static function details(string $action, array $metadata): ?string
     {
-        if (! in_array($action, ['annotation_created', 'annotation_deleted'], true)) {
+        if (in_array($action, ['annotation_created', 'annotation_deleted'], true)) {
+            $annotationType = is_string($metadata['annotation_type'] ?? null)
+                ? $metadata['annotation_type']
+                : null;
+            $pageNumber = is_numeric($metadata['page_number'] ?? null)
+                ? (int) $metadata['page_number']
+                : null;
+
+            if ($annotationType === null || $pageNumber === null) {
+                return null;
+            }
+
+            return sprintf(
+                '%s on page %d',
+                ucfirst(str_replace('_', ' ', $annotationType)),
+                $pageNumber,
+            );
+        }
+
+        if ($action !== 'reviewer_assignment_updated') {
             return null;
         }
 
-        $annotationType = is_string($metadata['annotation_type'] ?? null)
-            ? $metadata['annotation_type']
+        $previousAssignee = is_string($metadata['previous_assignee_name'] ?? null)
+            ? $metadata['previous_assignee_name']
             : null;
-        $pageNumber = is_numeric($metadata['page_number'] ?? null)
-            ? (int) $metadata['page_number']
+        $currentAssignee = is_string($metadata['assignee_name'] ?? null)
+            ? $metadata['assignee_name']
             : null;
 
-        if ($annotationType === null || $pageNumber === null) {
+        if ($previousAssignee === null && $currentAssignee === null) {
             return null;
         }
 
-        return sprintf(
-            '%s on page %d',
-            ucfirst(str_replace('_', ' ', $annotationType)),
-            $pageNumber,
-        );
+        if ($previousAssignee === null && $currentAssignee !== null) {
+            return sprintf('Assigned to %s', $currentAssignee);
+        }
+
+        if ($previousAssignee !== null && $currentAssignee === null) {
+            return sprintf('Cleared assignment from %s', $previousAssignee);
+        }
+
+        return sprintf('Reassigned from %s to %s', $previousAssignee, $currentAssignee);
     }
 }

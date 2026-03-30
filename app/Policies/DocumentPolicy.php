@@ -46,4 +46,9 @@ class DocumentPolicy
     {
         return $user->can('edit documents');
     }
+
+    public function assignReviewer(User $user, Document $document): bool
+    {
+        return $user->can('manage users');
+    }
 }

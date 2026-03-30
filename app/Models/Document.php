@@ -26,6 +26,7 @@ class Document extends Model
         'tenant_id',
         'matter_id',
         'uploaded_by',
+        'assigned_to',
         'title',
         'file_path',
         'file_name',
@@ -53,6 +54,11 @@ class Document extends Model
     public function uploader(): BelongsTo
     {
         return $this->belongsTo(User::class, 'uploaded_by');
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function auditLogs(): MorphMany

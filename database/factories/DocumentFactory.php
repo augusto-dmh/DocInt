@@ -18,6 +18,7 @@ class DocumentFactory extends Factory
             'tenant_id' => fn (array $attributes): string => Matter::query()->find($attributes['matter_id'])?->tenant_id ?? Tenant::factory()->create()->id,
             'matter_id' => Matter::factory(),
             'uploaded_by' => null,
+            'assigned_to' => null,
             'title' => fake()->sentence(3),
             'file_path' => fake()->filePath(),
             'file_name' => fake()->word().'.pdf',

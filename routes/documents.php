@@ -18,6 +18,8 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function (): void {
         ->name('documents.approve');
     Route::post('documents/{document}/reject', [DocumentController::class, 'reject'])
         ->name('documents.reject');
+    Route::patch('documents/{document}/reviewer', [DocumentController::class, 'assignReviewer'])
+        ->name('documents.reviewer.assign');
     Route::post('documents/{document}/annotations', [DocumentAnnotationController::class, 'store'])
         ->name('documents.annotations.store');
     Route::delete('documents/{document}/annotations/{annotation}', [DocumentAnnotationController::class, 'destroy'])

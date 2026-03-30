@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Enums\DocumentStatus;
+use App\Events\DocumentStatusUpdated;
+use App\Http\Requests\Documents\AssignDocumentReviewerRequest;
 use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
@@ -126,7 +128,7 @@ class DocumentController extends Controller
         }
 
         return Inertia::render('documents/Show', [
-            'document' => fn () => $document->load(['matter.client', 'uploader']),
+            'document' => fn () => $document->load(['matter.client', 'uploader', 'assignee']),
             'recentActivity' => fn () => $document->auditLogs()
                 ->with('user:id,name')
                 ->latest()
@@ -151,9 +153,13 @@ class DocumentController extends Controller
                         $request->user()?->id,
                     ))
                     ->values(),
+                'availableReviewers' => $request->user()?->can('assignReviewer', $document) === true
+                    ? $this->availableReviewersForAssignment($document)
+                    : [],
                 'permissions' => [
                     'canAnnotate' => $request->user()?->can('annotate', $document) === true
                         && DocumentReviewWorkspacePresenter::supportsInlinePreview($document),
+                    'canAssignReviewer' => $request->user()?->can('assignReviewer', $document) === true,
                 ],
             ],
             'extractedData' => fn () => $this->formatExtractedData(
@@ -205,6 +211,49 @@ class DocumentController extends Controller
             toStatus: DocumentStatus::Rejected,
             ability: 'review',
         );
+    }
+
+    public function assignReviewer(
+        AssignDocumentReviewerRequest $request,
+        Document $document,
+    ): RedirectResponse {
+        $document = $this->ensureCurrentTenantDocument($document);
+        $this->authorize('assignReviewer', $document);
+        $document->loadMissing('assignee');
+
+        $previousAssigneeId = $document->assigned_to;
+        $previousAssigneeName = $document->assignee?->name;
+        $assignee = $this->resolveReviewerAssignee(
+            $request->validated('assigned_to'),
+            $document,
+        );
+
+        if ($previousAssigneeId === $assignee?->id) {
+            return to_route('documents.show', $document);
+        }
+
+        $document->update([
+            'assigned_to' => $assignee?->id,
+        ]);
+
+        /** @var Document $freshDocument */
+        $freshDocument = $document->fresh(['assignee']);
+
+        $this->logDocumentAction($freshDocument, $request, 'reviewer_assignment_updated', [
+            'previous_assignee_id' => $previousAssigneeId,
+            'previous_assignee_name' => $previousAssigneeName,
+            'assignee_id' => $assignee?->id,
+            'assignee_name' => $assignee?->name,
+        ]);
+
+        event(new DocumentStatusUpdated(
+            document: $freshDocument,
+            fromStatus: $freshDocument->status->value,
+            toStatus: $freshDocument->status->value,
+            traceId: $freshDocument->processing_trace_id,
+        ));
+
+        return to_route('documents.show', $freshDocument);
     }
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
@@ -282,6 +331,38 @@ class DocumentController extends Controller
     protected function isRealtimeRefresh(Request $request): bool
     {
         return $request->header('X-Inertia-Partial-Data') !== null;
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    protected function availableReviewersForAssignment(Document $document): array
+    {
+        return $this->withPermissionTeamContext($document->tenant_id, function () use ($document): array {
+            return User::query()
+                ->where('tenant_id', $document->tenant_id)
+                ->orderBy('name')
+                ->get()
+                ->filter(fn (User $user): bool => $user->hasRole('associate'))
+                ->values()
+                ->map(fn (User $user): array => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                ])
+                ->all();
+        });
+    }
+
+    protected function resolveReviewerAssignee(mixed $assignedTo, Document $document): ?User
+    {
+        if (! is_numeric($assignedTo)) {
+            return null;
+        }
+
+        /** @var User */
+        return User::query()
+            ->where('tenant_id', $document->tenant_id)
+            ->findOrFail((int) $assignedTo);
     }
 
     /**
@@ -389,5 +470,27 @@ class DocumentController extends Controller
         $this->logDocumentAction($transitionedDocument, $request, $toStatus->value);
 
         return to_route('documents.show', $transitionedDocument);
+    }
+
+    /**
+     * @template TReturn
+     *
+     * @param  callable(): TReturn  $callback
+     * @return TReturn
+     */
+    protected function withPermissionTeamContext(?string $tenantId, callable $callback): mixed
+    {
+        if (! function_exists('getPermissionsTeamId') || ! function_exists('setPermissionsTeamId')) {
+            return $callback();
+        }
+
+        $originalTeamId = getPermissionsTeamId();
+        setPermissionsTeamId($tenantId);
+
+        try {
+            return $callback();
+        } finally {
+            setPermissionsTeamId($originalTeamId);
+        }
     }
 }
