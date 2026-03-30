@@ -2,12 +2,16 @@ import { usePage } from '@inertiajs/vue3';
 import { onBeforeUnmount, toValue, watch } from 'vue';
 import type { MaybeRefOrGetter } from 'vue';
 import { getEcho } from '@/lib/echo';
-import type { DocumentStatusUpdatedPayload } from '@/types';
+import type {
+    DocumentCommentUpdatedPayload,
+    DocumentStatusUpdatedPayload,
+} from '@/types';
 
 type UseDocumentChannelOptions = {
     tenantId?: MaybeRefOrGetter<string | null | undefined>;
     documentId?: MaybeRefOrGetter<number | null | undefined>;
     onStatusUpdated: (payload: DocumentStatusUpdatedPayload) => void;
+    onCommentUpdated?: (payload: DocumentCommentUpdatedPayload) => void;
 };
 
 function isDocumentStatusUpdatedPayload(
@@ -26,6 +30,27 @@ function isDocumentStatusUpdatedPayload(
             payload.from_status === null) &&
         typeof payload.to_status === 'string' &&
         (typeof payload.trace_id === 'string' || payload.trace_id === null) &&
+        typeof payload.occurred_at === 'string'
+    );
+}
+
+function isDocumentCommentUpdatedPayload(
+    value: unknown,
+): value is DocumentCommentUpdatedPayload {
+    if (typeof value !== 'object' || value === null) {
+        return false;
+    }
+
+    const payload = value as Record<string, unknown>;
+
+    return (
+        typeof payload.tenant_id === 'string' &&
+        typeof payload.document_id === 'number' &&
+        ['created', 'updated', 'deleted'].includes(
+            typeof payload.action === 'string' ? payload.action : '',
+        ) &&
+        (typeof payload.comment_id === 'number' ||
+            payload.comment_id === null) &&
         typeof payload.occurred_at === 'string'
     );
 }
@@ -61,6 +86,20 @@ export function useDocumentChannel(options: UseDocumentChannelOptions): void {
                 }
 
                 options.onStatusUpdated(payload);
+            },
+        );
+
+        echo.private(channelName).listen(
+            '.document.comment.updated',
+            (payload: unknown): void => {
+                if (
+                    options.onCommentUpdated === undefined ||
+                    !isDocumentCommentUpdatedPayload(payload)
+                ) {
+                    return;
+                }
+
+                options.onCommentUpdated(payload);
             },
         );
 

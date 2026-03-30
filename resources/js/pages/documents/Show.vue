@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import DocumentAnnotationController from '@/actions/App/Http/Controllers/DocumentAnnotationController';
+import DocumentCommentController from '@/actions/App/Http/Controllers/DocumentCommentController';
 import DocumentController from '@/actions/App/Http/Controllers/DocumentController';
 import MatterController from '@/actions/App/Http/Controllers/MatterController';
 import DocumentExperienceFrame from '@/components/documents/DocumentExperienceFrame.vue';
@@ -11,6 +12,7 @@ import EvidenceKeyValueList from '@/components/documents/EvidenceKeyValueList.vu
 import PdfViewer from '@/components/documents/PdfViewer.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { useDocumentChannel } from '@/composables/useDocumentChannel';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { HttpError, requestJson } from '@/lib/http';
@@ -21,6 +23,7 @@ import type {
     DocumentAnnotation,
     DocumentAnnotationCoordinates,
     DocumentAnnotationType,
+    DocumentComment,
     DocumentClassificationSummary,
     DocumentExtractedData,
     DocumentExperienceGuardrails,
@@ -43,6 +46,21 @@ type AnnotationCreateResponse = {
 type AnnotationDeleteResponse = {
     annotation_id: number;
     activity: DocumentActivity;
+};
+
+type CommentMutationResponse = {
+    comment: DocumentComment;
+    activity: DocumentActivity;
+};
+
+type CommentDeleteResponse = {
+    comment_id: number;
+    activity: DocumentActivity;
+};
+
+type ThreadedComment = {
+    comment: DocumentComment;
+    depth: number;
 };
 
 let nextOptimisticAnnotationId = -1;
@@ -68,7 +86,14 @@ const hasPendingDocumentReload = ref(false);
 const annotationMutationInFlight = ref(false);
 const annotationErrorMessage = ref<string | null>(null);
 const liveAnnotations = ref(props.reviewWorkspace.annotations);
+const commentMutationInFlight = ref(false);
+const commentErrorMessage = ref<string | null>(null);
+const liveComments = ref(props.reviewWorkspace.comments);
 const liveRecentActivity = ref(props.recentActivity);
+const commentBody = ref('');
+const commentParentId = ref<number | null>(null);
+const editingCommentId = ref<number | null>(null);
+const editingCommentBody = ref('');
 const selectedReviewerId = ref(
     props.document.assignee?.id ? String(props.document.assignee.id) : '',
 );
@@ -89,11 +114,59 @@ const currentAssigneeName = computed(
 const canAssignReviewer = computed(
     () => props.reviewWorkspace.permissions.canAssignReviewer,
 );
+const canComment = computed(() => props.reviewWorkspace.permissions.canComment);
+const canModerateComments = computed(
+    () => props.reviewWorkspace.permissions.canModerateComments,
+);
 const assignmentSelectionChanged = computed(
     () =>
         selectedReviewerId.value !==
         (props.document.assignee?.id ? String(props.document.assignee.id) : ''),
 );
+const replyTarget = computed(
+    () =>
+        liveComments.value.find(
+            (comment) => comment.id === commentParentId.value,
+        ) ?? null,
+);
+const threadedComments = computed<ThreadedComment[]>(() => {
+    const commentsByParent = new Map<number | null, DocumentComment[]>();
+    const sortedComments = [...liveComments.value].sort((left, right) => {
+        const timestampDifference =
+            new Date(left.created_at).getTime() -
+            new Date(right.created_at).getTime();
+
+        if (timestampDifference !== 0) {
+            return timestampDifference;
+        }
+
+        return left.id - right.id;
+    });
+
+    sortedComments.forEach((comment) => {
+        const parentId = comment.parent_id;
+        const siblings = commentsByParent.get(parentId) ?? [];
+
+        siblings.push(comment);
+        commentsByParent.set(parentId, siblings);
+    });
+
+    const flattened: ThreadedComment[] = [];
+
+    const visit = (parentId: number | null, depth: number): void => {
+        (commentsByParent.get(parentId) ?? []).forEach((comment) => {
+            flattened.push({
+                comment,
+                depth,
+            });
+            visit(comment.id, depth + 1);
+        });
+    };
+
+    visit(null, 0);
+
+    return flattened;
+});
 const extractedDataPayloadEntries = computed(() =>
     objectEntries(props.extractedData?.payload),
 );
@@ -193,6 +266,18 @@ function activityLabel(action: string): string {
 
     if (action === 'reviewer_assignment_updated') {
         return 'Reviewer assignment updated';
+    }
+
+    if (action === 'comment_created') {
+        return 'Comment added';
+    }
+
+    if (action === 'comment_updated') {
+        return 'Comment edited';
+    }
+
+    if (action === 'comment_deleted') {
+        return 'Comment removed';
     }
 
     return action.replaceAll('_', ' ');
@@ -296,11 +381,71 @@ function clearReviewerAssignment(): void {
     submitReviewerAssignment();
 }
 
+function canEditComment(comment: DocumentComment): boolean {
+    return canComment.value && comment.user?.id === currentUser.id;
+}
+
+function canDeleteComment(comment: DocumentComment): boolean {
+    return comment.user?.id === currentUser.id || canModerateComments.value;
+}
+
+function resetCommentComposer(): void {
+    commentBody.value = '';
+    commentParentId.value = null;
+}
+
+function beginReply(comment: DocumentComment): void {
+    commentParentId.value = comment.id;
+    editingCommentId.value = null;
+    editingCommentBody.value = '';
+    commentErrorMessage.value = null;
+}
+
+function cancelReply(): void {
+    resetCommentComposer();
+}
+
+function beginCommentEdit(comment: DocumentComment): void {
+    editingCommentId.value = comment.id;
+    editingCommentBody.value = comment.body;
+    commentParentId.value = null;
+    commentBody.value = '';
+    commentErrorMessage.value = null;
+}
+
+function cancelCommentEdit(): void {
+    editingCommentId.value = null;
+    editingCommentBody.value = '';
+}
+
 function prependRecentActivity(activity: DocumentActivity): void {
     liveRecentActivity.value = [
         activity,
         ...liveRecentActivity.value.filter((entry) => entry.id !== activity.id),
     ].slice(0, 8);
+}
+
+function upsertComment(nextComment: DocumentComment): void {
+    liveComments.value = [...liveComments.value]
+        .filter((comment) => comment.id !== nextComment.id)
+        .concat(nextComment)
+        .sort((left, right) => {
+            const timestampDifference =
+                new Date(left.created_at).getTime() -
+                new Date(right.created_at).getTime();
+
+            if (timestampDifference !== 0) {
+                return timestampDifference;
+            }
+
+            return left.id - right.id;
+        });
+}
+
+function removeComment(commentId: number): void {
+    liveComments.value = liveComments.value.filter(
+        (comment) => comment.id !== commentId,
+    );
 }
 
 function resolveAnnotationError(
@@ -427,6 +572,115 @@ async function deleteAnnotation(annotation: DocumentAnnotation): Promise<void> {
     }
 }
 
+async function submitComment(): Promise<void> {
+    if (
+        !canComment.value ||
+        commentMutationInFlight.value ||
+        commentBody.value.trim() === ''
+    ) {
+        return;
+    }
+
+    commentMutationInFlight.value = true;
+    commentErrorMessage.value = null;
+
+    try {
+        const response = await requestJson<CommentMutationResponse>(
+            DocumentCommentController.store.url({
+                document: props.document.id,
+            }),
+            {
+                body: {
+                    body: commentBody.value.trim(),
+                    parent_id: commentParentId.value,
+                },
+            },
+        );
+
+        upsertComment(response.comment);
+        prependRecentActivity(response.activity);
+        resetCommentComposer();
+    } catch (error) {
+        commentErrorMessage.value = resolveAnnotationError(
+            error,
+            'The comment could not be saved.',
+        );
+    } finally {
+        commentMutationInFlight.value = false;
+    }
+}
+
+async function saveCommentEdit(comment: DocumentComment): Promise<void> {
+    if (
+        !canEditComment(comment) ||
+        commentMutationInFlight.value ||
+        editingCommentBody.value.trim() === ''
+    ) {
+        return;
+    }
+
+    commentMutationInFlight.value = true;
+    commentErrorMessage.value = null;
+
+    try {
+        const response = await requestJson<CommentMutationResponse>(
+            DocumentCommentController.update.url({
+                document: props.document.id,
+                comment: comment.id,
+            }),
+            {
+                method: 'PATCH',
+                body: {
+                    body: editingCommentBody.value.trim(),
+                },
+            },
+        );
+
+        upsertComment(response.comment);
+        prependRecentActivity(response.activity);
+        cancelCommentEdit();
+    } catch (error) {
+        commentErrorMessage.value = resolveAnnotationError(
+            error,
+            'The comment could not be updated.',
+        );
+    } finally {
+        commentMutationInFlight.value = false;
+    }
+}
+
+async function deleteComment(comment: DocumentComment): Promise<void> {
+    if (!canDeleteComment(comment) || commentMutationInFlight.value) {
+        return;
+    }
+
+    commentMutationInFlight.value = true;
+    commentErrorMessage.value = null;
+
+    try {
+        const response = await requestJson<CommentDeleteResponse>(
+            DocumentCommentController.destroy.url({
+                document: props.document.id,
+                comment: comment.id,
+            }),
+            {
+                method: 'DELETE',
+            },
+        );
+
+        removeComment(response.comment_id);
+        prependRecentActivity(response.activity);
+        reloadDocument();
+    } catch (error) {
+        commentErrorMessage.value = resolveAnnotationError(
+            error,
+            'The comment could not be deleted.',
+        );
+    } finally {
+        commentMutationInFlight.value = false;
+    }
+}
+
 function reloadDocument(): void {
     if (isReloadingDocument.value) {
         hasPendingDocumentReload.value = true;
@@ -467,12 +721,38 @@ useDocumentChannel({
 
         reloadDocument();
     },
+    onCommentUpdated: (payload) => {
+        if (payload.document_id !== props.document.id) {
+            return;
+        }
+
+        if (payload.action === 'deleted') {
+            reloadDocument();
+
+            return;
+        }
+
+        if (payload.comment) {
+            upsertComment(payload.comment);
+        }
+
+        if (payload.activity) {
+            prependRecentActivity(payload.activity);
+        }
+    },
 });
 
 watch(
     () => props.reviewWorkspace.annotations,
     (annotations) => {
         liveAnnotations.value = annotations;
+    },
+);
+
+watch(
+    () => props.reviewWorkspace.comments,
+    (comments) => {
+        liveComments.value = comments;
     },
 );
 
@@ -958,10 +1238,7 @@ watch(
                                     </p>
                                 </div>
 
-                                <div
-                                    v-if="canAssignReviewer"
-                                    class="space-y-3"
-                                >
+                                <div v-if="canAssignReviewer" class="space-y-3">
                                     <label
                                         class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
                                         for="reviewer-assignee"
@@ -978,9 +1255,7 @@ watch(
                                                 .length === 0
                                         "
                                     >
-                                        <option value="">
-                                            Unassigned
-                                        </option>
+                                        <option value="">Unassigned</option>
                                         <option
                                             v-for="reviewer in reviewWorkspace.availableReviewers"
                                             :key="reviewer.id"
@@ -1038,13 +1313,268 @@ watch(
                                     </p>
                                 </div>
 
-                                <p
-                                    v-else
-                                    class="doc-subtle text-sm leading-6"
-                                >
+                                <p v-else class="doc-subtle text-sm leading-6">
                                     Only users who can manage reviewers can
                                     change the assignment.
                                 </p>
+                            </div>
+                        </section>
+
+                        <section
+                            class="doc-grid-line rounded-[1.5rem] border p-5"
+                        >
+                            <div
+                                class="mb-4 flex flex-wrap items-center justify-between gap-2"
+                            >
+                                <h2 class="doc-title text-lg font-semibold">
+                                    Collaboration threads
+                                </h2>
+                                <span
+                                    class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                >
+                                    {{ liveComments.length }} comments
+                                </span>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div
+                                    class="rounded-[1.25rem] border border-[color:var(--doc-grid-line)] bg-[rgba(255,255,255,0.68)] p-4"
+                                >
+                                    <div
+                                        class="mb-3 flex flex-wrap items-center justify-between gap-2"
+                                    >
+                                        <p
+                                            class="doc-subtle text-xs font-semibold tracking-[0.12em] uppercase"
+                                        >
+                                            {{
+                                                replyTarget
+                                                    ? 'Replying in thread'
+                                                    : 'Add comment'
+                                            }}
+                                        </p>
+                                        <button
+                                            v-if="replyTarget"
+                                            type="button"
+                                            class="doc-subtle text-xs font-semibold"
+                                            @click="cancelReply"
+                                        >
+                                            Cancel reply
+                                        </button>
+                                    </div>
+
+                                    <p
+                                        v-if="replyTarget"
+                                        class="doc-subtle mb-3 text-sm leading-6"
+                                    >
+                                        Replying to
+                                        {{
+                                            replyTarget.user?.name ??
+                                            'Unknown user'
+                                        }}.
+                                    </p>
+
+                                    <div v-if="canComment" class="space-y-3">
+                                        <Textarea
+                                            v-model="commentBody"
+                                            class="doc-title min-h-28 rounded-2xl border-[color:var(--doc-grid-line)] bg-white/80"
+                                            :disabled="commentMutationInFlight"
+                                            placeholder="Add a review note, question, or reply..."
+                                        />
+
+                                        <div
+                                            class="flex flex-wrap items-center gap-3"
+                                        >
+                                            <Button
+                                                :disabled="
+                                                    commentMutationInFlight ||
+                                                    commentBody.trim() === ''
+                                                "
+                                                @click="submitComment"
+                                            >
+                                                {{
+                                                    commentMutationInFlight
+                                                        ? 'Saving...'
+                                                        : replyTarget
+                                                          ? 'Post reply'
+                                                          : 'Post comment'
+                                                }}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <p
+                                        v-else
+                                        class="doc-subtle text-sm leading-6"
+                                    >
+                                        Comment threads are available only to
+                                        internal reviewers.
+                                    </p>
+
+                                    <p
+                                        v-if="commentErrorMessage"
+                                        class="mt-3 rounded-2xl border border-red-200/70 bg-red-50/80 px-4 py-3 text-sm text-red-700"
+                                    >
+                                        {{ commentErrorMessage }}
+                                    </p>
+                                </div>
+
+                                <div
+                                    v-if="threadedComments.length > 0"
+                                    class="space-y-3"
+                                >
+                                    <article
+                                        v-for="thread in threadedComments"
+                                        :key="thread.comment.id"
+                                        class="rounded-[1.25rem] border border-[color:var(--doc-grid-line)] bg-[rgba(255,255,255,0.62)] p-4"
+                                        :style="{
+                                            marginLeft: `${Math.min(thread.depth, 4) * 16}px`,
+                                        }"
+                                    >
+                                        <div
+                                            class="flex flex-wrap items-start justify-between gap-3"
+                                        >
+                                            <div class="space-y-1">
+                                                <p
+                                                    class="doc-title text-sm font-semibold"
+                                                >
+                                                    {{
+                                                        thread.comment.user
+                                                            ?.name ??
+                                                        'Former user'
+                                                    }}
+                                                </p>
+                                                <p class="doc-subtle text-xs">
+                                                    {{
+                                                        formatDateTime(
+                                                            thread.comment
+                                                                .created_at,
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+
+                                            <div
+                                                class="flex flex-wrap items-center gap-3"
+                                            >
+                                                <button
+                                                    v-if="canComment"
+                                                    type="button"
+                                                    class="doc-subtle text-xs font-semibold"
+                                                    @click="
+                                                        beginReply(
+                                                            thread.comment,
+                                                        )
+                                                    "
+                                                >
+                                                    Reply
+                                                </button>
+                                                <button
+                                                    v-if="
+                                                        canEditComment(
+                                                            thread.comment,
+                                                        )
+                                                    "
+                                                    type="button"
+                                                    class="doc-subtle text-xs font-semibold"
+                                                    @click="
+                                                        beginCommentEdit(
+                                                            thread.comment,
+                                                        )
+                                                    "
+                                                >
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    v-if="
+                                                        canDeleteComment(
+                                                            thread.comment,
+                                                        )
+                                                    "
+                                                    type="button"
+                                                    class="text-xs font-semibold text-red-600"
+                                                    @click="
+                                                        deleteComment(
+                                                            thread.comment,
+                                                        )
+                                                    "
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            v-if="
+                                                editingCommentId ===
+                                                thread.comment.id
+                                            "
+                                            class="mt-3 space-y-3"
+                                        >
+                                            <Textarea
+                                                v-model="editingCommentBody"
+                                                class="doc-title min-h-24 rounded-2xl border-[color:var(--doc-grid-line)] bg-white/80"
+                                                :disabled="
+                                                    commentMutationInFlight
+                                                "
+                                            />
+
+                                            <div
+                                                class="flex flex-wrap items-center gap-3"
+                                            >
+                                                <Button
+                                                    :disabled="
+                                                        commentMutationInFlight ||
+                                                        editingCommentBody.trim() ===
+                                                            ''
+                                                    "
+                                                    @click="
+                                                        saveCommentEdit(
+                                                            thread.comment,
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        commentMutationInFlight
+                                                            ? 'Saving...'
+                                                            : 'Save changes'
+                                                    }}
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    :disabled="
+                                                        commentMutationInFlight
+                                                    "
+                                                    @click="cancelCommentEdit"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <p
+                                            v-else
+                                            class="doc-subtle mt-3 text-sm leading-6 whitespace-pre-line"
+                                        >
+                                            {{ thread.comment.body }}
+                                        </p>
+                                    </article>
+                                </div>
+
+                                <div
+                                    v-else
+                                    class="rounded-2xl border border-dashed border-[color:var(--doc-grid-line)] p-4"
+                                >
+                                    <p class="doc-title text-sm font-semibold">
+                                        No discussion yet
+                                    </p>
+                                    <p
+                                        class="doc-subtle mt-2 text-sm leading-6"
+                                    >
+                                        Use the thread to coordinate review
+                                        decisions, flag issues, and leave
+                                        follow-up questions for the next viewer.
+                                    </p>
+                                </div>
                             </div>
                         </section>
 

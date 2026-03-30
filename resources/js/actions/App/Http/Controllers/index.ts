@@ -3,6 +3,7 @@ import ClientController from './ClientController'
 import Admin from './Admin'
 import DocumentController from './DocumentController'
 import DocumentAnnotationController from './DocumentAnnotationController'
+import DocumentCommentController from './DocumentCommentController'
 import MatterController from './MatterController'
 import Settings from './Settings'
 
@@ -12,6 +13,7 @@ const Controllers = {
     Admin: Object.assign(Admin, Admin),
     DocumentController: Object.assign(DocumentController, DocumentController),
     DocumentAnnotationController: Object.assign(DocumentAnnotationController, DocumentAnnotationController),
+    DocumentCommentController: Object.assign(DocumentCommentController, DocumentCommentController),
     MatterController: Object.assign(MatterController, MatterController),
     Settings: Object.assign(Settings, Settings),
 }

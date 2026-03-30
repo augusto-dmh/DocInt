@@ -1,5 +1,5 @@
 type JsonRequestOptions = {
-    method?: 'POST' | 'DELETE';
+    method?: 'POST' | 'PATCH' | 'DELETE';
     body?: unknown;
 };
 
