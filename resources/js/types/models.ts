@@ -40,6 +40,7 @@ export type DocumentStatus =
     | 'ready_for_review'
     | 'reviewed'
     | 'approved'
+    | 'rejected'
     | 'scan_failed'
     | 'extraction_failed'
     | 'classification_failed';

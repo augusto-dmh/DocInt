@@ -112,6 +112,36 @@ describe('tenant-admin', function (): void {
             ->get(route('documents.download', $document))
             ->assertRedirect($downloadUrl);
     });
+
+    test('can review approve and reject documents', function (): void {
+        [$tenant, $user, $matter] = createDocumentAuthorizationContext('tenant-admin');
+
+        $readyForReviewDocument = Document::factory()->readyForReview()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+        $reviewedDocument = Document::factory()->reviewed()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.review', $readyForReviewDocument))
+            ->assertRedirect(route('documents.show', $readyForReviewDocument));
+
+        $reviewedDocumentAfterReview = $readyForReviewDocument->fresh();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.approve', $reviewedDocument))
+            ->assertRedirect(route('documents.show', $reviewedDocument));
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.reject', $reviewedDocumentAfterReview))
+            ->assertRedirect(route('documents.show', $readyForReviewDocument));
+    });
 });
 
 describe('partner', function (): void {
@@ -166,6 +196,36 @@ describe('partner', function (): void {
             ->get(route('documents.download', $document))
             ->assertRedirect($downloadUrl);
     });
+
+    test('can review approve and reject documents', function (): void {
+        [$tenant, $user, $matter] = createDocumentAuthorizationContext('partner');
+
+        $readyForReviewDocument = Document::factory()->readyForReview()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+        $reviewedDocument = Document::factory()->reviewed()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.review', $readyForReviewDocument))
+            ->assertRedirect(route('documents.show', $readyForReviewDocument));
+
+        $reviewedDocumentAfterReview = $readyForReviewDocument->fresh();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.approve', $reviewedDocument))
+            ->assertRedirect(route('documents.show', $reviewedDocument));
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.reject', $reviewedDocumentAfterReview))
+            ->assertRedirect(route('documents.show', $readyForReviewDocument));
+    });
 });
 
 describe('associate', function (): void {
@@ -219,6 +279,37 @@ describe('associate', function (): void {
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
             ->get(route('documents.download', $document))
             ->assertRedirect($downloadUrl);
+    });
+
+    test('can review and reject documents but cannot approve them', function (): void {
+        [$tenant, $user, $matter] = createDocumentAuthorizationContext('associate');
+
+        $readyForReviewDocument = Document::factory()->readyForReview()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+        $reviewedDocument = Document::factory()->reviewed()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.review', $readyForReviewDocument))
+            ->assertRedirect(route('documents.show', $readyForReviewDocument));
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.reject', $reviewedDocument))
+            ->assertRedirect(route('documents.show', $reviewedDocument));
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.approve', Document::factory()->reviewed()->create([
+                'tenant_id' => $tenant->id,
+                'matter_id' => $matter->id,
+            ])))
+            ->assertForbidden();
     });
 });
 
@@ -281,5 +372,33 @@ describe('client role', function (): void {
             ->withHeaders(['X-Tenant-ID' => $tenant->id])
             ->get(route('documents.download', $document))
             ->assertRedirect($downloadUrl);
+    });
+
+    test('cannot review approve or reject documents', function (): void {
+        [$tenant, $user, $matter] = createDocumentAuthorizationContext('client');
+
+        $readyForReviewDocument = Document::factory()->readyForReview()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+        $reviewedDocument = Document::factory()->reviewed()->create([
+            'tenant_id' => $tenant->id,
+            'matter_id' => $matter->id,
+        ]);
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.review', $readyForReviewDocument))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.approve', $reviewedDocument))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->withHeaders(['X-Tenant-ID' => $tenant->id])
+            ->post(route('documents.reject', $readyForReviewDocument))
+            ->assertForbidden();
     });
 });

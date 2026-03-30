@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\DocumentStatus;
 use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
@@ -11,19 +12,26 @@ use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\User;
+use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DocumentController extends Controller
 {
-    public function __construct(public DocumentUploadService $documentUploadService) {}
+    public function __construct(
+        public DocumentUploadService $documentUploadService,
+        public DocumentStatusTransitionService $documentStatusTransitionService,
+    ) {}
 
     public function index(): Response
     {
@@ -154,6 +162,36 @@ class DocumentController extends Controller
         ]);
     }
 
+    public function review(Request $request, Document $document): RedirectResponse
+    {
+        return $this->transitionForManualReview(
+            request: $request,
+            document: $document,
+            toStatus: DocumentStatus::Reviewed,
+            ability: 'review',
+        );
+    }
+
+    public function approve(Request $request, Document $document): RedirectResponse
+    {
+        return $this->transitionForManualReview(
+            request: $request,
+            document: $document,
+            toStatus: DocumentStatus::Approved,
+            ability: 'approve',
+        );
+    }
+
+    public function reject(Request $request, Document $document): RedirectResponse
+    {
+        return $this->transitionForManualReview(
+            request: $request,
+            document: $document,
+            toStatus: DocumentStatus::Rejected,
+            ability: 'review',
+        );
+    }
+
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
     {
         $document = $this->ensureCurrentTenantDocument($document);
@@ -197,7 +235,7 @@ class DocumentController extends Controller
     }
 
     /**
-     * @param array<string, mixed> $metadata
+     * @param  array<string, mixed>  $metadata
      */
     protected function logDocumentAction(Document $document, Request $request, string $action, array $metadata = []): void
     {
@@ -343,5 +381,45 @@ class DocumentController extends Controller
         }
 
         return str_ends_with(strtolower($document->file_name), '.pdf');
+    }
+
+    protected function transitionForManualReview(
+        Request $request,
+        Document $document,
+        DocumentStatus $toStatus,
+        string $ability,
+    ): RedirectResponse {
+        $document = $this->ensureCurrentTenantDocument($document);
+        $this->authorize($ability, $document);
+
+        try {
+            $transitionedDocument = $this->documentStatusTransitionService->transition(
+                document: $document,
+                toStatus: $toStatus,
+                consumerName: 'manual-review',
+                messageId: (string) Str::uuid(),
+                metadata: [
+                    'source' => 'documents.show',
+                    'actor_user_id' => $request->user()?->id,
+                ],
+            );
+        } catch (InvalidArgumentException) {
+            $currentStatus = $document->fresh()?->status;
+            $fromStatus = $currentStatus instanceof DocumentStatus
+                ? $currentStatus->value
+                : $document->status->value;
+
+            throw ValidationException::withMessages([
+                'status' => sprintf(
+                    'Document cannot transition from [%s] to [%s].',
+                    $fromStatus,
+                    $toStatus->value,
+                ),
+            ]);
+        }
+
+        $this->logDocumentAction($transitionedDocument, $request, $toStatus->value);
+
+        return to_route('documents.show', $transitionedDocument);
     }
 }

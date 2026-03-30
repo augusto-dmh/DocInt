@@ -11,6 +11,12 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function (): void {
 
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])
         ->name('documents.preview');
+    Route::post('documents/{document}/review', [DocumentController::class, 'review'])
+        ->name('documents.review');
+    Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])
+        ->name('documents.approve');
+    Route::post('documents/{document}/reject', [DocumentController::class, 'reject'])
+        ->name('documents.reject');
 
     Route::resource('documents', DocumentController::class)
         ->except(['create', 'store']);

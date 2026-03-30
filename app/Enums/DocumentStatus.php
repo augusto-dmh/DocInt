@@ -12,6 +12,7 @@ enum DocumentStatus: string
     case ReadyForReview = 'ready_for_review';
     case Reviewed = 'reviewed';
     case Approved = 'approved';
+    case Rejected = 'rejected';
     case ScanFailed = 'scan_failed';
     case ExtractionFailed = 'extraction_failed';
     case ClassificationFailed = 'classification_failed';

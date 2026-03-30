@@ -62,6 +62,11 @@ class DocumentFactory extends Factory
         return $this->forStatus(DocumentStatus::Reviewed);
     }
 
+    public function rejected(): static
+    {
+        return $this->forStatus(DocumentStatus::Rejected);
+    }
+
     public function scanFailed(): static
     {
         return $this->forStatus(DocumentStatus::ScanFailed);

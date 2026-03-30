@@ -27,6 +27,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'create documents',
             'edit documents',
             'delete documents',
+            'review documents',
             'approve documents',
             'manage users',
             'manage tenant',
@@ -52,6 +53,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view documents',
                 'create documents',
                 'edit documents',
+                'review documents',
                 'approve documents',
                 'manage users',
             ]);
@@ -67,6 +69,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'view documents',
                 'create documents',
                 'edit documents',
+                'review documents',
             ]);
 
         Role::findOrCreate('client')

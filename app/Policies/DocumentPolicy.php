@@ -32,6 +32,11 @@ class DocumentPolicy
         return $user->can('delete documents');
     }
 
+    public function review(User $user, Document $document): bool
+    {
+        return $user->can('review documents');
+    }
+
     public function approve(User $user, Document $document): bool
     {
         return $user->can('approve documents');
