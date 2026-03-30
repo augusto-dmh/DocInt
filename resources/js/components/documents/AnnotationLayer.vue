@@ -110,6 +110,21 @@ function cancelComposer(): void {
     resetDraft();
 }
 
+function defaultCoordinates(point: {
+    x: number;
+    y: number;
+}): DocumentAnnotationCoordinates {
+    const defaultWidth = 0.2;
+    const defaultHeight = 0.08;
+
+    return {
+        x: clamp(point.x - defaultWidth / 2, 0, 1 - defaultWidth),
+        y: clamp(point.y - defaultHeight / 2, 0, 1 - defaultHeight),
+        width: defaultWidth,
+        height: defaultHeight,
+    };
+}
+
 function handlePointerDown(event: PointerEvent): void {
     if (
         !props.canAnnotate ||
@@ -177,12 +192,16 @@ function handlePointerUp(event: PointerEvent): void {
     const top = Math.min(pointerStart.value.y, point.y);
     const width = Math.abs(pointerStart.value.x - point.x);
     const height = Math.abs(pointerStart.value.y - point.y);
-    const draft = {
-        x: left,
-        y: top,
-        width,
-        height,
-    };
+    const minimumVisibleBox = 0.01;
+    const draft =
+        width < minimumVisibleBox || height < minimumVisibleBox
+            ? defaultCoordinates(point)
+            : {
+                  x: left,
+                  y: top,
+                  width,
+                  height,
+              };
 
     if (event.currentTarget instanceof HTMLElement) {
         event.currentTarget.releasePointerCapture(event.pointerId);
