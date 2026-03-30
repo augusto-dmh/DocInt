@@ -65,6 +65,11 @@ class Document extends Model
         return $this->hasMany(ProcessingEvent::class);
     }
 
+    public function annotations(): HasMany
+    {
+        return $this->hasMany(DocumentAnnotation::class);
+    }
+
     public function extractedData(): HasOne
     {
         return $this->hasOne(ExtractedData::class);

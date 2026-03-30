@@ -41,4 +41,9 @@ class DocumentPolicy
     {
         return $user->can('approve documents');
     }
+
+    public function annotate(User $user, Document $document): bool
+    {
+        return $user->can('edit documents');
+    }
 }
