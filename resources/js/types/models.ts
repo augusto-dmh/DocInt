@@ -50,6 +50,7 @@ export type Document = {
     tenant_id: string;
     matter_id: number;
     uploaded_by: number | null;
+    assigned_to?: number | null;
     title: string;
     file_path: string;
     file_name: string;
@@ -61,6 +62,7 @@ export type Document = {
     updated_at: string;
     matter?: Matter;
     uploader?: User | null;
+    assignee?: Pick<User, 'id' | 'name'> | null;
 };
 
 export type DocumentPreview = {
@@ -91,11 +93,15 @@ export type DocumentAnnotation = {
     is_owner: boolean;
 };
 
+export type DocumentReviewerOption = Pick<User, 'id' | 'name'>;
+
 export type DocumentReviewWorkspace = {
     preview: DocumentPreview;
     annotations: DocumentAnnotation[];
+    availableReviewers: DocumentReviewerOption[];
     permissions: {
         canAnnotate: boolean;
+        canAssignReviewer: boolean;
     };
 };
 
