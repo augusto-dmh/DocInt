@@ -22,6 +22,7 @@ function isDocumentStatusUpdatedPayload(
     }
 
     const payload = value as Record<string, unknown>;
+    const document = payload.document as Record<string, unknown> | null;
 
     return (
         typeof payload.tenant_id === 'string' &&
@@ -30,7 +31,12 @@ function isDocumentStatusUpdatedPayload(
             payload.from_status === null) &&
         typeof payload.to_status === 'string' &&
         (typeof payload.trace_id === 'string' || payload.trace_id === null) &&
-        typeof payload.occurred_at === 'string'
+        typeof payload.occurred_at === 'string' &&
+        (document === null ||
+            (typeof document === 'object' &&
+                typeof document.title === 'string' &&
+                (typeof document.matter_title === 'string' ||
+                    document.matter_title === null)))
     );
 }
 
