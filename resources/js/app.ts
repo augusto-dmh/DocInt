@@ -5,6 +5,7 @@ import { createApp, h } from 'vue';
 import '../css/app.css';
 import { initializeTheme } from './composables/useAppearance';
 import { initializeEcho } from './lib/echo';
+import type { RealtimeConfig } from './types';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -16,7 +17,12 @@ createInertiaApp({
             import.meta.glob<DefineComponent>('./pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
-        initializeEcho(props.initialPage.props.realtime);
+        initializeEcho(
+            props.initialPage.props.realtime as
+                | RealtimeConfig
+                | null
+                | undefined,
+        );
 
         createApp({ render: () => h(App, props) })
             .use(plugin)

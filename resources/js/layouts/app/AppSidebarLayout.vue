@@ -3,6 +3,7 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import WorkspaceNotificationRail from '@/components/realtime/WorkspaceNotificationRail.vue';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
@@ -19,6 +20,7 @@ withDefaults(defineProps<Props>(), {
         <AppSidebar />
         <AppContent variant="sidebar" class="overflow-x-hidden">
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
+            <WorkspaceNotificationRail />
             <div class="workspace-main p-4 md:p-6">
                 <slot />
             </div>

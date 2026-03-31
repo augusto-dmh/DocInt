@@ -181,10 +181,14 @@ export type DocumentProcessingActivity = {
 export type DocumentStatusUpdatedPayload = {
     tenant_id: string;
     document_id: number;
-    from_status: string | null;
-    to_status: string;
+    from_status: DocumentStatus | null;
+    to_status: DocumentStatus;
     trace_id: string | null;
     occurred_at: string;
+    document: {
+        title: string;
+        matter_title: string | null;
+    } | null;
 };
 
 export type DocumentCommentUpdatedPayload = {
@@ -203,13 +207,15 @@ export type DashboardStats = {
     failed: number;
 };
 
-export type DashboardRecentDocument = {
+export type DashboardPipelineDocument = {
     id: number;
     title: string;
     status: DocumentStatus;
     matter_title: string | null;
     updated_at: string;
 };
+
+export type DashboardFailureDocument = DashboardPipelineDocument;
 
 export type PaginatedData<T> = {
     data: T[];

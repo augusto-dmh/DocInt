@@ -91,23 +91,26 @@ test('dashboard shares tenant scoped stats and recent documents', function (): v
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->where('realtimeTenantId', $tenant->id)
+            ->has('pipelineDocuments', 5)
+            ->where('pipelineDocuments.0.id', $latestDocument->id)
+            ->where('pipelineDocuments.0.title', 'Latest upload')
+            ->where('pipelineDocuments.0.status', 'uploaded')
+            ->where('pipelineDocuments.0.matter_title', $matter->title)
+            ->has('pipelineDocuments.0.updated_at')
+            ->where('pipelineDocuments.1.id', $pendingReviewDocument->id)
+            ->where('pipelineDocuments.1.status', 'ready_for_review')
+            ->where('pipelineDocuments.2.id', $reviewedDocument->id)
+            ->where('pipelineDocuments.2.status', 'reviewed')
+            ->where('pipelineDocuments.3.id', $approvedDocument->id)
+            ->where('pipelineDocuments.3.status', 'approved')
+            ->where('pipelineDocuments.4.id', $failedDocument->id)
+            ->where('pipelineDocuments.4.status', 'scan_failed')
             ->where('stats.processed_today', 1)
             ->where('stats.pending_review', 2)
             ->where('stats.failed', 1)
-            ->has('recentDocuments', 5)
-            ->where('recentDocuments.0.id', $latestDocument->id)
-            ->where('recentDocuments.0.title', 'Latest upload')
-            ->where('recentDocuments.0.status', 'uploaded')
-            ->where('recentDocuments.0.matter_title', $matter->title)
-            ->has('recentDocuments.0.updated_at')
-            ->where('recentDocuments.1.id', $pendingReviewDocument->id)
-            ->where('recentDocuments.1.status', 'ready_for_review')
-            ->where('recentDocuments.2.id', $reviewedDocument->id)
-            ->where('recentDocuments.2.status', 'reviewed')
-            ->where('recentDocuments.3.id', $approvedDocument->id)
-            ->where('recentDocuments.3.status', 'approved')
-            ->where('recentDocuments.4.id', $failedDocument->id)
-            ->where('recentDocuments.4.status', 'scan_failed')
+            ->has('recentFailures', 1)
+            ->where('recentFailures.0.id', $failedDocument->id)
+            ->where('recentFailures.0.status', 'scan_failed')
         );
 });
 
@@ -121,10 +124,11 @@ test('dashboard falls back to empty snapshot for super admins without tenant con
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->where('realtimeTenantId', null)
+            ->where('pipelineDocuments', [])
             ->where('stats.processed_today', 0)
             ->where('stats.pending_review', 0)
             ->where('stats.failed', 0)
-            ->where('recentDocuments', [])
+            ->where('recentFailures', [])
         );
 });
 
@@ -163,14 +167,17 @@ test('dashboard uses the selected tenant context for super admin metrics', funct
         ->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
             ->where('realtimeTenantId', $selectedTenant->id)
+            ->has('pipelineDocuments', 2)
+            ->where('pipelineDocuments.0.id', $selectedDocument->id)
+            ->where('pipelineDocuments.0.status', 'classifying')
+            ->where('pipelineDocuments.1.id', $selectedFailure->id)
+            ->where('pipelineDocuments.1.status', 'extraction_failed')
             ->where('stats.processed_today', 0)
             ->where('stats.pending_review', 0)
             ->where('stats.failed', 1)
-            ->has('recentDocuments', 2)
-            ->where('recentDocuments.0.id', $selectedDocument->id)
-            ->where('recentDocuments.0.status', 'classifying')
-            ->where('recentDocuments.1.id', $selectedFailure->id)
-            ->where('recentDocuments.1.status', 'extraction_failed')
+            ->has('recentFailures', 1)
+            ->where('recentFailures.0.id', $selectedFailure->id)
+            ->where('recentFailures.0.status', 'extraction_failed')
         );
 });
 
@@ -194,13 +201,15 @@ test('dashboard partial reload returns only stats and recent documents', functio
             ->component('Dashboard')
             ->where('realtimeTenantId', $tenant->id)
             ->where('stats.pending_review', 1)
-            ->has('recentDocuments', 1)
-            ->where('recentDocuments.0.id', $document->id)
-            ->reloadOnly(['stats', 'recentDocuments'], fn (Assert $reload) => $reload
+            ->has('pipelineDocuments', 1)
+            ->where('pipelineDocuments.0.id', $document->id)
+            ->where('recentFailures', [])
+            ->reloadOnly(['pipelineDocuments', 'stats', 'recentFailures'], fn (Assert $reload) => $reload
                 ->component('Dashboard')
+                ->has('pipelineDocuments', 1)
+                ->where('pipelineDocuments.0.id', $document->id)
                 ->where('stats.pending_review', 1)
-                ->has('recentDocuments', 1)
-                ->where('recentDocuments.0.id', $document->id)
+                ->where('recentFailures', [])
                 ->missing('realtimeTenantId')
             )
         );

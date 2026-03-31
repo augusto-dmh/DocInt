@@ -76,7 +76,7 @@ test('document upload dispatches a document status updated broadcast event', fun
         'Engagement Letter',
     );
 
-    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $tenant): bool {
+    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $matter, $tenant): bool {
         $payload = $event->broadcastWith();
 
         return $event->broadcastAs() === 'document.status.updated'
@@ -86,6 +86,10 @@ test('document upload dispatches a document status updated broadcast event', fun
             && $payload['to_status'] === 'uploaded'
             && is_string($payload['trace_id'])
             && $payload['trace_id'] !== ''
+            && $payload['document'] === [
+                'title' => 'Engagement Letter',
+                'matter_title' => $matter->title,
+            ]
             && broadcastChannelNames($event) === [
                 "private-tenants.{$tenant->id}.documents",
                 "private-documents.{$document->id}",
@@ -113,7 +117,7 @@ test('document status transitions dispatch a document status updated broadcast e
         consumerName: 'broadcast-test',
     );
 
-    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $tenant): bool {
+    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $matter, $tenant): bool {
         $payload = $event->broadcastWith();
 
         return $payload['tenant_id'] === $tenant->id
@@ -121,6 +125,10 @@ test('document status transitions dispatch a document status updated broadcast e
             && $payload['from_status'] === 'uploaded'
             && $payload['to_status'] === 'scanning'
             && $payload['trace_id'] === $document->processing_trace_id
+            && $payload['document'] === [
+                'title' => $document->title,
+                'matter_title' => $matter->title,
+            ]
             && broadcastChannelNames($event) === [
                 "private-tenants.{$tenant->id}.documents",
                 "private-documents.{$document->id}",
@@ -148,7 +156,7 @@ test('rejected review transitions dispatch a document status updated broadcast e
         consumerName: 'manual-review',
     );
 
-    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $tenant): bool {
+    Event::assertDispatched(DocumentStatusUpdated::class, function (DocumentStatusUpdated $event) use ($document, $matter, $tenant): bool {
         $payload = $event->broadcastWith();
 
         return $payload['tenant_id'] === $tenant->id
@@ -156,6 +164,10 @@ test('rejected review transitions dispatch a document status updated broadcast e
             && $payload['from_status'] === 'reviewed'
             && $payload['to_status'] === 'rejected'
             && $payload['trace_id'] === $document->processing_trace_id
+            && $payload['document'] === [
+                'title' => $document->title,
+                'matter_title' => $matter->title,
+            ]
             && broadcastChannelNames($event) === [
                 "private-tenants.{$tenant->id}.documents",
                 "private-documents.{$document->id}",
