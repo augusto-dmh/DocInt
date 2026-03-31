@@ -13,6 +13,12 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function (): void {
 
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])
         ->name('documents.preview');
+    Route::post('documents/bulk/approve', [DocumentController::class, 'bulkApprove'])
+        ->name('documents.bulk.approve');
+    Route::post('documents/bulk/reject', [DocumentController::class, 'bulkReject'])
+        ->name('documents.bulk.reject');
+    Route::patch('documents/bulk/reviewer', [DocumentController::class, 'bulkAssignReviewer'])
+        ->name('documents.bulk.reviewer.assign');
     Route::post('documents/{document}/review', [DocumentController::class, 'review'])
         ->name('documents.review');
     Route::post('documents/{document}/approve', [DocumentController::class, 'approve'])
