@@ -18,8 +18,9 @@ class DashboardController extends Controller
 
         return Inertia::render('Dashboard', [
             'realtimeTenantId' => $realtimeTenantId,
+            'pipelineDocuments' => fn (): array => $this->pipelineDocuments($realtimeTenantId),
             'stats' => fn (): array => $this->dashboardStats($realtimeTenantId),
-            'recentDocuments' => fn (): array => $this->recentDocuments($realtimeTenantId),
+            'recentFailures' => fn (): array => $this->recentFailures($realtimeTenantId),
         ]);
     }
 
@@ -85,7 +86,7 @@ class DashboardController extends Controller
     /**
      * @return list<array{id: int, title: string, status: string, matter_title: string|null, updated_at: string}>
      */
-    protected function recentDocuments(?string $tenantId): array
+    protected function pipelineDocuments(?string $tenantId): array
     {
         if ($tenantId === null) {
             return [];
@@ -96,6 +97,39 @@ class DashboardController extends Controller
             ->with('matter:id,title')
             ->latest('updated_at')
             ->limit(8)
+            ->get()
+            ->map(function (Document $document): array {
+                return [
+                    'id' => $document->id,
+                    'title' => $document->title,
+                    'status' => $document->status->value,
+                    'matter_title' => $document->matter?->title,
+                    'updated_at' => $document->updated_at->toISOString(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, title: string, status: string, matter_title: string|null, updated_at: string}>
+     */
+    protected function recentFailures(?string $tenantId): array
+    {
+        if ($tenantId === null) {
+            return [];
+        }
+
+        return Document::query()
+            ->where('tenant_id', $tenantId)
+            ->whereIn('status', [
+                DocumentStatus::ScanFailed,
+                DocumentStatus::ExtractionFailed,
+                DocumentStatus::ClassificationFailed,
+            ])
+            ->with('matter:id,title')
+            ->latest('updated_at')
+            ->limit(5)
             ->get()
             ->map(function (Document $document): array {
                 return [

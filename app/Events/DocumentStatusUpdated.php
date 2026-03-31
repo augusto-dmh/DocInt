@@ -25,6 +25,11 @@ class DocumentStatusUpdated implements ShouldBroadcastNow
 
     public readonly string $occurredAt;
 
+    /**
+     * @var array{title: string, matter_title: string|null}|null
+     */
+    public readonly ?array $document;
+
     public function __construct(
         Document $document,
         ?string $fromStatus,
@@ -38,6 +43,7 @@ class DocumentStatusUpdated implements ShouldBroadcastNow
         $this->toStatus = $toStatus;
         $this->traceId = $traceId;
         $this->occurredAt = ($occurredAt ?? now()->toImmutable())->toISOString();
+        $this->document = $this->documentSnapshot($document);
     }
 
     public function broadcastOn(): array
@@ -60,7 +66,8 @@ class DocumentStatusUpdated implements ShouldBroadcastNow
      *     from_status: string|null,
      *     to_status: string,
      *     trace_id: string|null,
-     *     occurred_at: string
+     *     occurred_at: string,
+     *     document: array{title: string, matter_title: string|null}|null
      * }
      */
     public function broadcastWith(): array
@@ -72,6 +79,24 @@ class DocumentStatusUpdated implements ShouldBroadcastNow
             'to_status' => $this->toStatus,
             'trace_id' => $this->traceId,
             'occurred_at' => $this->occurredAt,
+            'document' => $this->document,
+        ];
+    }
+
+    /**
+     * @return array{title: string, matter_title: string|null}|null
+     */
+    protected function documentSnapshot(Document $document): ?array
+    {
+        $document->loadMissing('matter:id,title');
+
+        if (! is_string($document->title) || $document->title === '') {
+            return null;
+        }
+
+        return [
+            'title' => $document->title,
+            'matter_title' => $document->matter?->title,
         ];
     }
 }
