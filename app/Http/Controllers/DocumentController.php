@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Enums\DocumentStatus;
 use App\Events\DocumentStatusUpdated;
 use App\Http\Requests\Documents\AssignDocumentReviewerRequest;
+use App\Http\Requests\Documents\BulkAssignDocumentReviewerRequest;
+use App\Http\Requests\Documents\BulkReviewDocumentsRequest;
 use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
@@ -20,6 +22,7 @@ use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
 use App\Support\DocumentReviewWorkspacePresenter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -38,7 +41,7 @@ class DocumentController extends Controller
         public DocumentStatusTransitionService $documentStatusTransitionService,
     ) {}
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $this->authorize('viewAny', Document::class);
 
@@ -47,6 +50,16 @@ class DocumentController extends Controller
                 ->with(['matter', 'uploader'])
                 ->latest()
                 ->paginate(15),
+            'bulkReview' => fn (): array => [
+                'availableReviewers' => $request->user()?->can('manage users')
+                    ? $this->availableReviewersForTenant(tenant()?->id)
+                    : [],
+                'permissions' => [
+                    'canBulkApprove' => $request->user()?->can('approve documents') === true,
+                    'canBulkReject' => $request->user()?->can('review documents') === true,
+                    'canBulkReassign' => $request->user()?->can('manage users') === true,
+                ],
+            ],
             'documentExperience' => fn () => DocumentExperienceGuardrails::inertiaPayload(),
         ]);
     }
@@ -265,6 +278,97 @@ class DocumentController extends Controller
         return to_route('documents.show', $freshDocument);
     }
 
+    public function bulkApprove(BulkReviewDocumentsRequest $request): JsonResponse
+    {
+        return $this->performBulkStatusTransition(
+            request: $request,
+            toStatus: DocumentStatus::Approved,
+            ability: 'approve',
+            authorizationVerb: 'approve',
+            successAction: 'approved',
+        );
+    }
+
+    public function bulkReject(BulkReviewDocumentsRequest $request): JsonResponse
+    {
+        return $this->performBulkStatusTransition(
+            request: $request,
+            toStatus: DocumentStatus::Rejected,
+            ability: 'review',
+            authorizationVerb: 'reject',
+            successAction: 'rejected',
+        );
+    }
+
+    public function bulkAssignReviewer(BulkAssignDocumentReviewerRequest $request): JsonResponse
+    {
+        /** @var list<int> $documentIds */
+        $documentIds = $request->validated('document_ids');
+        $selectedDocuments = $this->selectedDocumentsForBulkAction($documentIds);
+        $assignee = $this->resolveBulkReviewerAssignee($request->validated('assigned_to'));
+        $processedIds = [];
+        $skipped = [];
+
+        foreach ($documentIds as $documentId) {
+            $document = $selectedDocuments->get($documentId);
+
+            if (! $document instanceof Document) {
+                $skipped[] = $this->bulkSkippedDocument($documentId, null, 'Document is no longer available.');
+
+                continue;
+            }
+
+            if (! $request->user()?->can('assignReviewer', $document)) {
+                $skipped[] = $this->bulkSkippedDocument($document->id, $document->title, 'You are not allowed to reassign this document.');
+
+                continue;
+            }
+
+            $document->loadMissing('assignee');
+
+            if ($document->assigned_to === $assignee?->id) {
+                $skipped[] = $this->bulkSkippedDocument($document->id, $document->title, 'Reviewer assignment is already up to date.');
+
+                continue;
+            }
+
+            $previousAssigneeId = $document->assigned_to;
+            $previousAssigneeName = $document->assignee?->name;
+
+            $document->update([
+                'assigned_to' => $assignee?->id,
+            ]);
+
+            /** @var Document $freshDocument */
+            $freshDocument = $document->fresh(['assignee']);
+
+            $this->logDocumentAction($freshDocument, $request, 'reviewer_assignment_updated', [
+                'bulk_action' => true,
+                'previous_assignee_id' => $previousAssigneeId,
+                'previous_assignee_name' => $previousAssigneeName,
+                'assignee_id' => $assignee?->id,
+                'assignee_name' => $assignee?->name,
+            ]);
+
+            event(new DocumentStatusUpdated(
+                document: $freshDocument,
+                fromStatus: $freshDocument->status->value,
+                toStatus: $freshDocument->status->value,
+                traceId: $freshDocument->processing_trace_id,
+            ));
+
+            $processedIds[] = $freshDocument->id;
+        }
+
+        return response()->json($this->bulkActionResultPayload(
+            action: 'reassign',
+            attemptedCount: count($documentIds),
+            processedIds: $processedIds,
+            skipped: $skipped,
+            successVerb: 'reassigned',
+        ));
+    }
+
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
     {
         $document = $this->ensureCurrentTenantDocument($document);
@@ -347,9 +451,17 @@ class DocumentController extends Controller
      */
     protected function availableReviewersForAssignment(Document $document): array
     {
-        return $this->withPermissionTeamContext($document->tenant_id, function () use ($document): array {
+        return $this->availableReviewersForTenant($document->tenant_id);
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    protected function availableReviewersForTenant(?string $tenantId): array
+    {
+        return $this->withPermissionTeamContext($tenantId, function () use ($tenantId): array {
             return User::query()
-                ->where('tenant_id', $document->tenant_id)
+                ->where('tenant_id', $tenantId)
                 ->orderBy('name')
                 ->get()
                 ->filter(fn (User $user): bool => $user->hasRole('associate'))
@@ -360,6 +472,18 @@ class DocumentController extends Controller
                 ])
                 ->all();
         });
+    }
+
+    protected function resolveBulkReviewerAssignee(mixed $assignedTo): ?User
+    {
+        if (! is_numeric($assignedTo)) {
+            return null;
+        }
+
+        /** @var User */
+        return User::query()
+            ->where('tenant_id', tenant()?->id)
+            ->findOrFail((int) $assignedTo);
     }
 
     protected function resolveReviewerAssignee(mixed $assignedTo, Document $document): ?User
@@ -479,6 +603,148 @@ class DocumentController extends Controller
         $this->logDocumentAction($transitionedDocument, $request, $toStatus->value);
 
         return to_route('documents.show', $transitionedDocument);
+    }
+
+    protected function performBulkStatusTransition(
+        BulkReviewDocumentsRequest $request,
+        DocumentStatus $toStatus,
+        string $ability,
+        string $authorizationVerb,
+        string $successAction,
+    ): JsonResponse {
+        /** @var list<int> $documentIds */
+        $documentIds = $request->validated('document_ids');
+        $selectedDocuments = $this->selectedDocumentsForBulkAction($documentIds);
+        $processedIds = [];
+        $skipped = [];
+
+        foreach ($documentIds as $documentId) {
+            $document = $selectedDocuments->get($documentId);
+
+            if (! $document instanceof Document) {
+                $skipped[] = $this->bulkSkippedDocument($documentId, null, 'Document is no longer available.');
+
+                continue;
+            }
+
+            if (! $request->user()?->can($ability, $document)) {
+                $skipped[] = $this->bulkSkippedDocument(
+                    $document->id,
+                    $document->title,
+                    sprintf('You are not allowed to %s this document.', $authorizationVerb),
+                );
+
+                continue;
+            }
+
+            try {
+                $transitionedDocument = $this->documentStatusTransitionService->transition(
+                    document: $document,
+                    toStatus: $toStatus,
+                    consumerName: 'bulk-review',
+                    messageId: (string) Str::uuid(),
+                    metadata: [
+                        'source' => 'documents.index.bulk',
+                        'actor_user_id' => $request->user()?->id,
+                        'bulk_action' => $successAction,
+                    ],
+                );
+            } catch (InvalidArgumentException) {
+                $skipped[] = $this->bulkSkippedDocument(
+                    $document->id,
+                    $document->title,
+                    sprintf(
+                        'Document cannot transition from [%s] to [%s].',
+                        $document->status->value,
+                        $toStatus->value,
+                    ),
+                );
+
+                continue;
+            }
+
+            $this->logDocumentAction($transitionedDocument, $request, $successAction, [
+                'bulk_action' => true,
+            ]);
+
+            $processedIds[] = $transitionedDocument->id;
+        }
+
+        return response()->json($this->bulkActionResultPayload(
+            action: $successAction,
+            attemptedCount: count($documentIds),
+            processedIds: $processedIds,
+            skipped: $skipped,
+            successVerb: $successAction,
+        ));
+    }
+
+    /**
+     * @param  list<int>  $documentIds
+     * @return \Illuminate\Support\Collection<int, Document>
+     */
+    protected function selectedDocumentsForBulkAction(array $documentIds): \Illuminate\Support\Collection
+    {
+        return Document::query()
+            ->where('tenant_id', tenant()?->id)
+            ->whereIn('id', $documentIds)
+            ->get()
+            ->keyBy('id');
+    }
+
+    /**
+     * @param  list<array{document_id: int, title: string|null, reason: string}>  $skipped
+     * @return array{
+     *     action: string,
+     *     attempted_count: int,
+     *     processed_count: int,
+     *     skipped_count: int,
+     *     processed_ids: list<int>,
+     *     skipped: list<array{document_id: int, title: string|null, reason: string}>,
+     *     message: string
+     * }
+     */
+    protected function bulkActionResultPayload(
+        string $action,
+        int $attemptedCount,
+        array $processedIds,
+        array $skipped,
+        string $successVerb,
+    ): array {
+        $processedCount = count($processedIds);
+        $skippedCount = count($skipped);
+
+        $message = $processedCount > 0
+            ? sprintf(
+                '%s %d %s%s',
+                ucfirst($successVerb),
+                $processedCount,
+                Str::plural('document', $processedCount),
+                $skippedCount > 0 ? sprintf('. Skipped %d.', $skippedCount) : '.',
+            )
+            : sprintf('No documents were %s.', $successVerb);
+
+        return [
+            'action' => $action,
+            'attempted_count' => $attemptedCount,
+            'processed_count' => $processedCount,
+            'skipped_count' => $skippedCount,
+            'processed_ids' => $processedIds,
+            'skipped' => $skipped,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @return array{document_id: int, title: string|null, reason: string}
+     */
+    protected function bulkSkippedDocument(int $documentId, ?string $title, string $reason): array
+    {
+        return [
+            'document_id' => $documentId,
+            'title' => $title,
+            'reason' => $reason,
+        ];
     }
 
     /**

@@ -117,6 +117,31 @@ export type DocumentReviewWorkspace = {
     };
 };
 
+export type DocumentBulkReview = {
+    availableReviewers: DocumentReviewerOption[];
+    permissions: {
+        canBulkApprove: boolean;
+        canBulkReject: boolean;
+        canBulkReassign: boolean;
+    };
+};
+
+export type DocumentBulkActionSkipped = {
+    document_id: number;
+    title: string | null;
+    reason: string;
+};
+
+export type DocumentBulkActionResult = {
+    action: 'approved' | 'rejected' | 'reassign';
+    attempted_count: number;
+    processed_count: number;
+    skipped_count: number;
+    processed_ids: number[];
+    skipped: DocumentBulkActionSkipped[];
+    message: string;
+};
+
 export type DocumentExtractedData = {
     provider: string;
     extracted_text: string | null;

@@ -4,7 +4,7 @@ import { queryParams, type RouteQueryOptions, type RouteDefinition, type RouteFo
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-export const index = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+export const index = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(args, options),
     method: 'get',
 })
@@ -19,7 +19,7 @@ index.definition = {
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-index.url = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+index.url = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { document: args }
     }
@@ -52,7 +52,7 @@ index.url = (args: { document: number | { id: number } } | [document: number | {
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-index.get = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
+index.get = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'get'> => ({
     url: index.url(args, options),
     method: 'get',
 })
@@ -62,7 +62,7 @@ index.get = (args: { document: number | { id: number } } | [document: number | {
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-index.head = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
+index.head = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'head'> => ({
     url: index.url(args, options),
     method: 'head',
 })
@@ -72,7 +72,7 @@ index.head = (args: { document: number | { id: number } } | [document: number | 
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-const indexForm = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+const indexForm = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index.url(args, options),
     method: 'get',
 })
@@ -82,7 +82,7 @@ const indexForm = (args: { document: number | { id: number } } | [document: numb
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-indexForm.get = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+indexForm.get = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index.url(args, options),
     method: 'get',
 })
@@ -92,7 +92,7 @@ indexForm.get = (args: { document: number | { id: number } } | [document: number
 * @see app/Http/Controllers/DocumentCommentController.php:18
 * @route '/documents/{document}/comments'
 */
-indexForm.head = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
+indexForm.head = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'get'> => ({
     action: index.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'HEAD',
@@ -109,7 +109,7 @@ index.form = indexForm
 * @see app/Http/Controllers/DocumentCommentController.php:33
 * @route '/documents/{document}/comments'
 */
-export const store = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+export const store = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -124,7 +124,7 @@ store.definition = {
 * @see app/Http/Controllers/DocumentCommentController.php:33
 * @route '/documents/{document}/comments'
 */
-store.url = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions) => {
+store.url = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions) => {
     if (typeof args === 'string' || typeof args === 'number') {
         args = { document: args }
     }
@@ -157,7 +157,7 @@ store.url = (args: { document: number | { id: number } } | [document: number | {
 * @see app/Http/Controllers/DocumentCommentController.php:33
 * @route '/documents/{document}/comments'
 */
-store.post = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
+store.post = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteDefinition<'post'> => ({
     url: store.url(args, options),
     method: 'post',
 })
@@ -167,7 +167,7 @@ store.post = (args: { document: number | { id: number } } | [document: number | 
 * @see app/Http/Controllers/DocumentCommentController.php:33
 * @route '/documents/{document}/comments'
 */
-const storeForm = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const storeForm = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -177,7 +177,7 @@ const storeForm = (args: { document: number | { id: number } } | [document: numb
 * @see app/Http/Controllers/DocumentCommentController.php:33
 * @route '/documents/{document}/comments'
 */
-storeForm.post = (args: { document: number | { id: number } } | [document: number | { id: number } ] | number | { id: number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+storeForm.post = (args: { document: string | number | { id: string | number } } | [document: string | number | { id: string | number } ] | string | number | { id: string | number }, options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: store.url(args, options),
     method: 'post',
 })
@@ -189,7 +189,7 @@ store.form = storeForm
 * @see app/Http/Controllers/DocumentCommentController.php:73
 * @route '/documents/{document}/comments/{comment}'
 */
-export const update = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+export const update = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -204,7 +204,7 @@ update.definition = {
 * @see app/Http/Controllers/DocumentCommentController.php:73
 * @route '/documents/{document}/comments/{comment}'
 */
-update.url = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions) => {
+update.url = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             document: args[0],
@@ -234,7 +234,7 @@ update.url = (args: { document: number | { id: number }, comment: number | { id:
 * @see app/Http/Controllers/DocumentCommentController.php:73
 * @route '/documents/{document}/comments/{comment}'
 */
-update.patch = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
+update.patch = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'patch'> => ({
     url: update.url(args, options),
     method: 'patch',
 })
@@ -244,7 +244,7 @@ update.patch = (args: { document: number | { id: number }, comment: number | { i
 * @see app/Http/Controllers/DocumentCommentController.php:73
 * @route '/documents/{document}/comments/{comment}'
 */
-const updateForm = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const updateForm = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: update.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'PATCH',
@@ -259,7 +259,7 @@ const updateForm = (args: { document: number | { id: number }, comment: number |
 * @see app/Http/Controllers/DocumentCommentController.php:73
 * @route '/documents/{document}/comments/{comment}'
 */
-updateForm.patch = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+updateForm.patch = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: update.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'PATCH',
@@ -276,7 +276,7 @@ update.form = updateForm
 * @see app/Http/Controllers/DocumentCommentController.php:113
 * @route '/documents/{document}/comments/{comment}'
 */
-export const destroy = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+export const destroy = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -291,7 +291,7 @@ destroy.definition = {
 * @see app/Http/Controllers/DocumentCommentController.php:113
 * @route '/documents/{document}/comments/{comment}'
 */
-destroy.url = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions) => {
+destroy.url = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions) => {
     if (Array.isArray(args)) {
         args = {
             document: args[0],
@@ -321,7 +321,7 @@ destroy.url = (args: { document: number | { id: number }, comment: number | { id
 * @see app/Http/Controllers/DocumentCommentController.php:113
 * @route '/documents/{document}/comments/{comment}'
 */
-destroy.delete = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
+destroy.delete = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteDefinition<'delete'> => ({
     url: destroy.url(args, options),
     method: 'delete',
 })
@@ -331,7 +331,7 @@ destroy.delete = (args: { document: number | { id: number }, comment: number | {
 * @see app/Http/Controllers/DocumentCommentController.php:113
 * @route '/documents/{document}/comments/{comment}'
 */
-const destroyForm = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+const destroyForm = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: destroy.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',
@@ -346,7 +346,7 @@ const destroyForm = (args: { document: number | { id: number }, comment: number 
 * @see app/Http/Controllers/DocumentCommentController.php:113
 * @route '/documents/{document}/comments/{comment}'
 */
-destroyForm.delete = (args: { document: number | { id: number }, comment: number | { id: number } } | [document: number | { id: number }, comment: number | { id: number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
+destroyForm.delete = (args: { document: string | number | { id: string | number }, comment: string | number | { id: string | number } } | [document: string | number | { id: string | number }, comment: string | number | { id: string | number } ], options?: RouteQueryOptions): RouteFormDefinition<'post'> => ({
     action: destroy.url(args, {
         [options?.mergeQuery ? 'mergeQuery' : 'query']: {
             _method: 'DELETE',
