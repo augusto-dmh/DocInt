@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Spatie\Permission\Models\Permission;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -105,6 +106,10 @@ class HandleInertiaRequests extends Middleware
     {
         if (! $user instanceof User) {
             return [];
+        }
+
+        if ($user->hasSuperAdminRole()) {
+            return Permission::pluck('name')->values()->all();
         }
 
         return $this->withPermissionTeamContext($tenant?->id, fn (): array => $user->getAllPermissions()->pluck('name')->values()->all());
