@@ -65,3 +65,31 @@ test('controllers do not reintroduce ad-hoc tenant scoping helpers', function ()
         ),
     );
 });
+
+test('controllers do not reintroduce view-data formatters or domain transition helpers', function (): void {
+    $controllersPath = dirname(__DIR__, 2).'/app/Http/Controllers';
+
+    $controllerFiles = (new Symfony\Component\Finder\Finder)
+        ->in($controllersPath)
+        ->files()
+        ->name('*.php');
+
+    $forbiddenMethodPattern = '/function\s+(format[A-Z]\w*|resolve\w*Assignee|performBulk\w*|transitionFor\w*)\s*\(/';
+
+    $offenders = [];
+
+    foreach ($controllerFiles as $controllerFile) {
+        if (preg_match_all($forbiddenMethodPattern, $controllerFile->getContents(), $matches) > 0) {
+            foreach ($matches[1] as $methodName) {
+                $offenders[] = sprintf('%s::%s', $controllerFile->getRelativePathname(), $methodName);
+            }
+        }
+    }
+
+    expect($offenders)->toBeEmpty(
+        sprintf(
+            'Controllers must delegate view-data formatting and domain transitions to dedicated services; offending methods: %s',
+            implode(', ', $offenders),
+        ),
+    );
+});
