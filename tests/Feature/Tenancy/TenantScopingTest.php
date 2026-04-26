@@ -32,6 +32,26 @@ function createTenantUserWithRole(string $role = 'tenant-admin'): array
     return [$tenant, $user];
 }
 
+function makeForeignTenantDocument(): Document
+{
+    $tenant = Tenant::factory()->create();
+    $client = Client::factory()->create(['tenant_id' => $tenant->id]);
+    $matter = Matter::factory()->create(['tenant_id' => $tenant->id, 'client_id' => $client->id]);
+
+    return Document::factory()->create(['tenant_id' => $tenant->id, 'matter_id' => $matter->id]);
+}
+
+function makeForeignTenantDocumentWithComment(): array
+{
+    $document = makeForeignTenantDocument();
+    $comment = \App\Models\DocumentComment::factory()->create([
+        'tenant_id' => $document->tenant_id,
+        'document_id' => $document->id,
+    ]);
+
+    return [$document, $comment];
+}
+
 test('clients index only returns records for the authenticated users tenant', function (): void {
     [$tenant, $user] = createTenantUserWithRole();
     $otherTenant = Tenant::factory()->create();
@@ -231,5 +251,36 @@ test('document annotation routes deny cross tenant access', function (): void {
 
     $this->actingAs($userA)
         ->delete(route('documents.annotations.destroy', [$tenantBDocument, $tenantBAnnotation]))
+        ->assertNotFound();
+});
+
+test('comment store route denies cross tenant access', function (): void {
+    [, $userA] = createTenantUserWithRole();
+    $foreignDocument = makeForeignTenantDocument();
+
+    $this->actingAs($userA)
+        ->postJson(route('documents.comments.store', $foreignDocument), [
+            'body' => 'Should never persist.',
+        ])
+        ->assertNotFound();
+});
+
+test('comment update route denies cross tenant access', function (): void {
+    [, $userA] = createTenantUserWithRole();
+    [$foreignDocument, $foreignComment] = makeForeignTenantDocumentWithComment();
+
+    $this->actingAs($userA)
+        ->patchJson(route('documents.comments.update', [$foreignDocument, $foreignComment]), [
+            'body' => 'Should never apply.',
+        ])
+        ->assertNotFound();
+});
+
+test('comment destroy route denies cross tenant access', function (): void {
+    [, $userA] = createTenantUserWithRole();
+    [$foreignDocument, $foreignComment] = makeForeignTenantDocumentWithComment();
+
+    $this->actingAs($userA)
+        ->deleteJson(route('documents.comments.destroy', [$foreignDocument, $foreignComment]))
         ->assertNotFound();
 });
