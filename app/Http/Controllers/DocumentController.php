@@ -126,6 +126,7 @@ class DocumentController extends Controller
             'Content-Disposition' => HeaderUtils::makeDisposition(
                 HeaderUtils::DISPOSITION_INLINE,
                 $document->file_name,
+                Str::ascii($document->file_name),
             ),
             'Content-Type' => 'application/pdf',
             'X-Content-Type-Options' => 'nosniff',
