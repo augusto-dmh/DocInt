@@ -17,7 +17,6 @@ class DocumentCommentController extends Controller
 {
     public function index(Request $request, Document $document): JsonResponse
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
         return response()->json([
@@ -32,7 +31,6 @@ class DocumentCommentController extends Controller
 
     public function store(StoreDocumentCommentRequest $request, Document $document): JsonResponse
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
         $this->authorize('comment', $document);
 
@@ -75,8 +73,6 @@ class DocumentCommentController extends Controller
         Document $document,
         DocumentComment $comment,
     ): JsonResponse {
-        $document = $this->ensureCurrentTenantDocument($document);
-        $comment = $this->ensureCurrentTenantDocumentComment($document, $comment);
         $this->authorize('view', $document);
         $this->authorize('comment', $document);
 
@@ -115,8 +111,6 @@ class DocumentCommentController extends Controller
         Document $document,
         DocumentComment $comment,
     ): JsonResponse {
-        $document = $this->ensureCurrentTenantDocument($document);
-        $comment = $this->ensureCurrentTenantDocumentComment($document, $comment);
         $this->authorize('view', $document);
 
         /** @var User $user */
@@ -154,26 +148,6 @@ class DocumentCommentController extends Controller
             'comment_id' => $commentSnapshot->id,
             'activity' => DocumentReviewWorkspacePresenter::auditLog($activity),
         ]);
-    }
-
-    protected function ensureCurrentTenantDocument(Document $document): Document
-    {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
-
-        return $document;
-    }
-
-    protected function ensureCurrentTenantDocumentComment(
-        Document $document,
-        DocumentComment $comment,
-    ): DocumentComment {
-        abort_unless(
-            $comment->tenant_id === $document->tenant_id
-                && $comment->document_id === $document->id,
-            404,
-        );
-
-        return $comment;
     }
 
     protected function resolveParentComment(mixed $parentId, Document $document): ?DocumentComment
