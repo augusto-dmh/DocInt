@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Enums\DocumentStatus;
 use App\Http\Requests\Documents\AssignDocumentReviewerRequest;
-use App\Http\Requests\Documents\BulkAssignDocumentReviewerRequest;
-use App\Http\Requests\Documents\BulkReviewDocumentsRequest;
 use App\Http\Requests\Documents\StoreDocumentRequest;
 use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
@@ -15,14 +13,12 @@ use App\Models\DocumentComment;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\User;
-use App\Services\Documents\DocumentBulkReviewService;
 use App\Services\Documents\DocumentManualReviewTransitioner;
 use App\Services\Documents\DocumentReviewerAssignmentService;
 use App\Services\Documents\DocumentShowPresenter;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
 use App\Support\DocumentReviewWorkspacePresenter;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -37,7 +33,6 @@ class DocumentController extends Controller
     public function __construct(
         public DocumentUploadService $documentUploadService,
         public DocumentReviewerAssignmentService $documentReviewerAssignmentService,
-        public DocumentBulkReviewService $documentBulkReviewService,
         public DocumentManualReviewTransitioner $documentManualReviewTransitioner,
         public DocumentShowPresenter $documentShowPresenter,
     ) {}
@@ -242,54 +237,6 @@ class DocumentController extends Controller
         ]);
 
         return to_route('documents.show', $result['document']);
-    }
-
-    public function bulkApprove(BulkReviewDocumentsRequest $request): JsonResponse
-    {
-        /** @var User $actor */
-        $actor = $request->user();
-
-        return response()->json($this->documentBulkReviewService->performStatusTransition(
-            documentIds: $request->validated('document_ids'),
-            toStatus: DocumentStatus::Approved,
-            ability: 'approve',
-            authorizationVerb: 'approve',
-            successAction: 'approved',
-            actor: $actor,
-            ipAddress: $request->ip(),
-            userAgent: $request->userAgent(),
-        ));
-    }
-
-    public function bulkReject(BulkReviewDocumentsRequest $request): JsonResponse
-    {
-        /** @var User $actor */
-        $actor = $request->user();
-
-        return response()->json($this->documentBulkReviewService->performStatusTransition(
-            documentIds: $request->validated('document_ids'),
-            toStatus: DocumentStatus::Rejected,
-            ability: 'review',
-            authorizationVerb: 'reject',
-            successAction: 'rejected',
-            actor: $actor,
-            ipAddress: $request->ip(),
-            userAgent: $request->userAgent(),
-        ));
-    }
-
-    public function bulkAssignReviewer(BulkAssignDocumentReviewerRequest $request): JsonResponse
-    {
-        /** @var User $actor */
-        $actor = $request->user();
-
-        return response()->json($this->documentBulkReviewService->performReviewerAssignment(
-            documentIds: $request->validated('document_ids'),
-            assignedTo: $request->validated('assigned_to'),
-            actor: $actor,
-            ipAddress: $request->ip(),
-            userAgent: $request->userAgent(),
-        ));
     }
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
