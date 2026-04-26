@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\BulkDocumentReviewController;
 use App\Http\Controllers\DocumentAnnotationController;
 use App\Http\Controllers\DocumentCommentController;
 use App\Http\Controllers\DocumentController;
@@ -13,11 +14,11 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function (): void {
 
     Route::get('documents/{document}/preview', [DocumentController::class, 'preview'])
         ->name('documents.preview');
-    Route::post('documents/bulk/approve', [DocumentController::class, 'bulkApprove'])
+    Route::post('documents/bulk/approve', [BulkDocumentReviewController::class, 'approve'])
         ->name('documents.bulk.approve');
-    Route::post('documents/bulk/reject', [DocumentController::class, 'bulkReject'])
+    Route::post('documents/bulk/reject', [BulkDocumentReviewController::class, 'reject'])
         ->name('documents.bulk.reject');
-    Route::patch('documents/bulk/reviewer', [DocumentController::class, 'bulkAssignReviewer'])
+    Route::patch('documents/bulk/reviewer', [BulkDocumentReviewController::class, 'assignReviewer'])
         ->name('documents.bulk.reviewer.assign');
     Route::post('documents/{document}/review', [DocumentController::class, 'review'])
         ->name('documents.review');
