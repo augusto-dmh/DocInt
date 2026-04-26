@@ -18,8 +18,8 @@ use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\User;
 use App\Services\Documents\DocumentBulkReviewService;
+use App\Services\Documents\DocumentManualReviewTransitioner;
 use App\Services\Documents\DocumentReviewerAssignmentService;
-use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
 use App\Support\DocumentReviewWorkspacePresenter;
@@ -28,10 +28,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -39,9 +37,9 @@ class DocumentController extends Controller
 {
     public function __construct(
         public DocumentUploadService $documentUploadService,
-        public DocumentStatusTransitionService $documentStatusTransitionService,
         public DocumentReviewerAssignmentService $documentReviewerAssignmentService,
         public DocumentBulkReviewService $documentBulkReviewService,
+        public DocumentManualReviewTransitioner $documentManualReviewTransitioner,
     ) {}
 
     public function index(Request $request): Response
@@ -206,32 +204,17 @@ class DocumentController extends Controller
 
     public function review(Request $request, Document $document): RedirectResponse
     {
-        return $this->transitionForManualReview(
-            request: $request,
-            document: $document,
-            toStatus: DocumentStatus::Reviewed,
-            ability: 'review',
-        );
+        return $this->runManualReviewTransition($request, $document, DocumentStatus::Reviewed, 'review');
     }
 
     public function approve(Request $request, Document $document): RedirectResponse
     {
-        return $this->transitionForManualReview(
-            request: $request,
-            document: $document,
-            toStatus: DocumentStatus::Approved,
-            ability: 'approve',
-        );
+        return $this->runManualReviewTransition($request, $document, DocumentStatus::Approved, 'approve');
     }
 
     public function reject(Request $request, Document $document): RedirectResponse
     {
-        return $this->transitionForManualReview(
-            request: $request,
-            document: $document,
-            toStatus: DocumentStatus::Rejected,
-            ability: 'review',
-        );
+        return $this->runManualReviewTransition($request, $document, DocumentStatus::Rejected, 'review');
     }
 
     public function assignReviewer(
@@ -436,7 +419,7 @@ class DocumentController extends Controller
         ];
     }
 
-    protected function transitionForManualReview(
+    protected function runManualReviewTransition(
         Request $request,
         Document $document,
         DocumentStatus $toStatus,
@@ -444,35 +427,17 @@ class DocumentController extends Controller
     ): RedirectResponse {
         $this->authorize($ability, $document);
 
-        try {
-            $transitionedDocument = $this->documentStatusTransitionService->transition(
-                document: $document,
-                toStatus: $toStatus,
-                consumerName: 'manual-review',
-                messageId: (string) Str::uuid(),
-                metadata: [
-                    'source' => 'documents.show',
-                    'actor_user_id' => $request->user()?->id,
-                ],
-            );
-        } catch (InvalidArgumentException) {
-            $currentStatus = $document->fresh()?->status;
-            $fromStatus = $currentStatus instanceof DocumentStatus
-                ? $currentStatus->value
-                : $document->status->value;
+        /** @var User $actor */
+        $actor = $request->user();
 
-            throw ValidationException::withMessages([
-                'status' => sprintf(
-                    'Document cannot transition from [%s] to [%s].',
-                    $fromStatus,
-                    $toStatus->value,
-                ),
-            ]);
-        }
-
-        $this->logDocumentAction($transitionedDocument, $request, $toStatus->value);
+        $transitionedDocument = $this->documentManualReviewTransitioner->transition(
+            document: $document,
+            toStatus: $toStatus,
+            actor: $actor,
+            ipAddress: $request->ip(),
+            userAgent: $request->userAgent(),
+        );
 
         return to_route('documents.show', $transitionedDocument);
     }
-
 }
