@@ -18,6 +18,7 @@ use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\User;
+use App\Services\Documents\DocumentReviewerAssignmentService;
 use App\Services\DocumentStatusTransitionService;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
@@ -39,6 +40,7 @@ class DocumentController extends Controller
     public function __construct(
         public DocumentUploadService $documentUploadService,
         public DocumentStatusTransitionService $documentStatusTransitionService,
+        public DocumentReviewerAssignmentService $documentReviewerAssignmentService,
     ) {}
 
     public function index(Request $request): Response
@@ -52,7 +54,7 @@ class DocumentController extends Controller
                 ->paginate(15),
             'bulkReview' => fn (): array => [
                 'availableReviewers' => $request->user()?->can('manage users')
-                    ? $this->availableReviewersForTenant(tenant()?->id)
+                    ? $this->documentReviewerAssignmentService->availableReviewersForTenant(tenant()?->id)
                     : [],
                 'permissions' => [
                     'canBulkApprove' => $request->user()?->can('approve documents') === true,
@@ -171,7 +173,7 @@ class DocumentController extends Controller
                     ->map(fn (DocumentComment $comment): array => DocumentReviewWorkspacePresenter::comment($comment))
                     ->values(),
                 'availableReviewers' => $request->user()?->can('assignReviewer', $document) === true
-                    ? $this->availableReviewersForAssignment($document)
+                    ? $this->documentReviewerAssignmentService->availableReviewersForAssignment($document)
                     : [],
                 'permissions' => [
                     'canAnnotate' => $request->user()?->can('annotate', $document) === true
@@ -236,41 +238,26 @@ class DocumentController extends Controller
         Document $document,
     ): RedirectResponse {
         $this->authorize('assignReviewer', $document);
-        $document->loadMissing('assignee');
 
-        $previousAssigneeId = $document->assigned_to;
-        $previousAssigneeName = $document->assignee?->name;
-        $assignee = $this->resolveReviewerAssignee(
+        $assignee = $this->documentReviewerAssignmentService->resolveAssignee(
             $request->validated('assigned_to'),
             $document,
         );
 
-        if ($previousAssigneeId === $assignee?->id) {
+        $result = $this->documentReviewerAssignmentService->assign($document, $assignee);
+
+        if (! $result['changed']) {
             return to_route('documents.show', $document);
         }
 
-        $document->update([
-            'assigned_to' => $assignee?->id,
+        $this->logDocumentAction($result['document'], $request, 'reviewer_assignment_updated', [
+            'previous_assignee_id' => $result['previous_assignee_id'],
+            'previous_assignee_name' => $result['previous_assignee_name'],
+            'assignee_id' => $result['assignee_id'],
+            'assignee_name' => $result['assignee_name'],
         ]);
 
-        /** @var Document $freshDocument */
-        $freshDocument = $document->fresh(['assignee']);
-
-        $this->logDocumentAction($freshDocument, $request, 'reviewer_assignment_updated', [
-            'previous_assignee_id' => $previousAssigneeId,
-            'previous_assignee_name' => $previousAssigneeName,
-            'assignee_id' => $assignee?->id,
-            'assignee_name' => $assignee?->name,
-        ]);
-
-        event(new DocumentStatusUpdated(
-            document: $freshDocument,
-            fromStatus: $freshDocument->status->value,
-            toStatus: $freshDocument->status->value,
-            traceId: $freshDocument->processing_trace_id,
-        ));
-
-        return to_route('documents.show', $freshDocument);
+        return to_route('documents.show', $result['document']);
     }
 
     public function bulkApprove(BulkReviewDocumentsRequest $request): JsonResponse
@@ -424,34 +411,6 @@ class DocumentController extends Controller
         return $request->header('X-Inertia-Partial-Data') !== null;
     }
 
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    protected function availableReviewersForAssignment(Document $document): array
-    {
-        return $this->availableReviewersForTenant($document->tenant_id);
-    }
-
-    /**
-     * @return list<array{id: int, name: string}>
-     */
-    protected function availableReviewersForTenant(?string $tenantId): array
-    {
-        return $this->withPermissionTeamContext($tenantId, function () use ($tenantId): array {
-            return User::query()
-                ->where('tenant_id', $tenantId)
-                ->orderBy('name')
-                ->get()
-                ->filter(fn (User $user): bool => $user->hasRole('associate'))
-                ->values()
-                ->map(fn (User $user): array => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                ])
-                ->all();
-        });
-    }
-
     protected function resolveBulkReviewerAssignee(mixed $assignedTo): ?User
     {
         if (! is_numeric($assignedTo)) {
@@ -461,18 +420,6 @@ class DocumentController extends Controller
         /** @var User */
         return User::query()
             ->where('tenant_id', tenant()?->id)
-            ->findOrFail((int) $assignedTo);
-    }
-
-    protected function resolveReviewerAssignee(mixed $assignedTo, Document $document): ?User
-    {
-        if (! is_numeric($assignedTo)) {
-            return null;
-        }
-
-        /** @var User */
-        return User::query()
-            ->where('tenant_id', $document->tenant_id)
             ->findOrFail((int) $assignedTo);
     }
 
@@ -724,25 +671,4 @@ class DocumentController extends Controller
         ];
     }
 
-    /**
-     * @template TReturn
-     *
-     * @param  callable(): TReturn  $callback
-     * @return TReturn
-     */
-    protected function withPermissionTeamContext(?string $tenantId, callable $callback): mixed
-    {
-        if (! function_exists('getPermissionsTeamId') || ! function_exists('setPermissionsTeamId')) {
-            return $callback();
-        }
-
-        $originalTeamId = getPermissionsTeamId();
-        setPermissionsTeamId($tenantId);
-
-        try {
-            return $callback();
-        } finally {
-            setPermissionsTeamId($originalTeamId);
-        }
-    }
 }
