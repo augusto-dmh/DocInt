@@ -231,7 +231,12 @@ async function loadDocument(): Promise<void> {
     await destroyDocumentHandle();
 
     try {
-        loadingTask = getDocument(props.src) as PdfLoadingTask;
+        loadingTask = getDocument({
+            url: props.src,
+            cMapUrl: '/pdfjs/cmaps/',
+            cMapPacked: true,
+            standardFontDataUrl: '/pdfjs/standard_fonts/',
+        }) as PdfLoadingTask;
         documentHandle = await loadingTask.promise;
         const firstPage = await documentHandle.getPage(1);
         naturalPageWidth = firstPage.getViewport({ scale: 1 }).width;
@@ -314,7 +319,7 @@ watch(
 );
 
 watch(renderScale, async () => {
-    if (documentHandle === null) {
+    if (documentHandle === null || loading.value) {
         return;
     }
 
@@ -327,7 +332,10 @@ onMounted(() => {
 
         syncFitScale();
 
-        if (Math.abs(previousFitScale - fitScale.value) > 0.01) {
+        if (
+            Math.abs(previousFitScale - fitScale.value) > 0.01 &&
+            !loading.value
+        ) {
             void renderPages();
         }
     });
