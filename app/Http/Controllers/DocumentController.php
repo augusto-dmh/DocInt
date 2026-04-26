@@ -31,10 +31,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class DocumentController extends Controller
 {
     public function __construct(
-        public DocumentUploadService $documentUploadService,
-        public DocumentReviewerAssignmentService $documentReviewerAssignmentService,
-        public DocumentManualReviewTransitioner $documentManualReviewTransitioner,
-        public DocumentShowPresenter $documentShowPresenter,
+        public readonly DocumentUploadService $documentUploadService,
+        public readonly DocumentReviewerAssignmentService $documentReviewerAssignmentService,
+        public readonly DocumentManualReviewTransitioner $documentManualReviewTransitioner,
+        public readonly DocumentShowPresenter $documentShowPresenter,
     ) {}
 
     public function index(Request $request): Response

@@ -12,7 +12,7 @@ use Illuminate\Http\JsonResponse;
 class BulkDocumentReviewController extends Controller
 {
     public function __construct(
-        public DocumentBulkReviewService $documentBulkReviewService,
+        public readonly DocumentBulkReviewService $documentBulkReviewService,
     ) {}
 
     public function approve(BulkReviewDocumentsRequest $request): JsonResponse
