@@ -11,15 +11,14 @@ use App\Http\Requests\Documents\UpdateDocumentRequest;
 use App\Models\AuditLog;
 use App\Models\Document;
 use App\Models\DocumentAnnotation;
-use App\Models\DocumentClassification;
 use App\Models\DocumentComment;
-use App\Models\ExtractedData;
 use App\Models\Matter;
 use App\Models\ProcessingEvent;
 use App\Models\User;
 use App\Services\Documents\DocumentBulkReviewService;
 use App\Services\Documents\DocumentManualReviewTransitioner;
 use App\Services\Documents\DocumentReviewerAssignmentService;
+use App\Services\Documents\DocumentShowPresenter;
 use App\Services\DocumentUploadService;
 use App\Support\DocumentExperienceGuardrails;
 use App\Support\DocumentReviewWorkspacePresenter;
@@ -40,6 +39,7 @@ class DocumentController extends Controller
         public DocumentReviewerAssignmentService $documentReviewerAssignmentService,
         public DocumentBulkReviewService $documentBulkReviewService,
         public DocumentManualReviewTransitioner $documentManualReviewTransitioner,
+        public DocumentShowPresenter $documentShowPresenter,
     ) {}
 
     public function index(Request $request): Response
@@ -152,7 +152,7 @@ class DocumentController extends Controller
                 ->latest()
                 ->limit(8)
                 ->get()
-                ->map(fn (ProcessingEvent $processingEvent): array => $this->formatProcessingEvent($processingEvent))
+                ->map(fn (ProcessingEvent $processingEvent): array => $this->documentShowPresenter->formatProcessingEvent($processingEvent))
                 ->values(),
             'reviewWorkspace' => fn (): array => [
                 'preview' => DocumentReviewWorkspacePresenter::preview($document),
@@ -182,10 +182,10 @@ class DocumentController extends Controller
                     'canModerateComments' => $request->user()?->can('moderateComments', $document) === true,
                 ],
             ],
-            'extractedData' => fn () => $this->formatExtractedData(
+            'extractedData' => fn () => $this->documentShowPresenter->formatExtractedData(
                 $document->extractedData()->first(),
             ),
-            'classification' => fn () => $this->formatClassification(
+            'classification' => fn () => $this->documentShowPresenter->formatClassification(
                 $document->classification()->first(),
             ),
             'documentExperience' => fn () => DocumentExperienceGuardrails::inertiaPayload(),
@@ -350,73 +350,6 @@ class DocumentController extends Controller
     protected function isRealtimeRefresh(Request $request): bool
     {
         return $request->header('X-Inertia-Partial-Data') !== null;
-    }
-
-    /**
-     * @return array{id: int, consumer_name: string, status_from: string|null, status_to: string|null, event: string, created_at: string}
-     */
-    protected function formatProcessingEvent(ProcessingEvent $processingEvent): array
-    {
-        return [
-            'id' => $processingEvent->id,
-            'consumer_name' => $processingEvent->consumer_name,
-            'status_from' => $processingEvent->status_from,
-            'status_to' => $processingEvent->status_to,
-            'event' => $processingEvent->event,
-            'created_at' => $processingEvent->created_at->toISOString(),
-        ];
-    }
-
-    /**
-     * @return array{
-     *     provider: string,
-     *     extracted_text: string|null,
-     *     payload: array<mixed>|null,
-     *     metadata: array<mixed>|null,
-     *     created_at: string,
-     *     updated_at: string
-     * }|null
-     */
-    protected function formatExtractedData(?ExtractedData $extractedData): ?array
-    {
-        if ($extractedData === null) {
-            return null;
-        }
-
-        return [
-            'provider' => $extractedData->provider,
-            'extracted_text' => $extractedData->extracted_text,
-            'payload' => is_array($extractedData->payload) ? $extractedData->payload : null,
-            'metadata' => is_array($extractedData->metadata) ? $extractedData->metadata : null,
-            'created_at' => $extractedData->created_at->toISOString(),
-            'updated_at' => $extractedData->updated_at->toISOString(),
-        ];
-    }
-
-    /**
-     * @return array{
-     *     provider: string,
-     *     type: string,
-     *     confidence: float|null,
-     *     metadata: array<mixed>|null,
-     *     created_at: string,
-     *     updated_at: string
-     * }|null
-     */
-    protected function formatClassification(?DocumentClassification $classification): ?array
-    {
-        if ($classification === null) {
-            return null;
-        }
-
-        return [
-            'provider' => $classification->provider,
-            'type' => $classification->type,
-            'confidence' => is_numeric($classification->confidence) ? (float) $classification->confidence : null,
-            'metadata' => is_array($classification->metadata) ? $classification->metadata : null,
-            'created_at' => $classification->created_at->toISOString(),
-            'updated_at' => $classification->updated_at->toISOString(),
-        ];
     }
 
     protected function runManualReviewTransition(
