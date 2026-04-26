@@ -29,6 +29,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant' => InitializeTenantContext::class,
         ]);
+
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            prepend: \App\Http\Middleware\InitializeTenantContext::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -66,7 +66,6 @@ class DocumentController extends Controller
 
     public function create(Matter $matter): Response
     {
-        $matter = $this->ensureCurrentTenantMatter($matter);
         $this->authorize('create', Document::class);
 
         return Inertia::render('documents/Create', [
@@ -77,7 +76,6 @@ class DocumentController extends Controller
 
     public function store(StoreDocumentRequest $request, Matter $matter): RedirectResponse
     {
-        $matter = $this->ensureCurrentTenantMatter($matter);
         $this->authorize('create', Document::class);
 
         /** @var \Illuminate\Http\UploadedFile $file */
@@ -98,7 +96,6 @@ class DocumentController extends Controller
 
     public function preview(Document $document): StreamedResponse
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
         abort_unless(DocumentReviewWorkspacePresenter::supportsInlinePreview($document), 404);
@@ -135,7 +132,6 @@ class DocumentController extends Controller
 
     public function show(Request $request, Document $document): Response
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
         if (! $this->isRealtimeRefresh($request)) {
@@ -197,7 +193,6 @@ class DocumentController extends Controller
 
     public function edit(Document $document): Response
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('update', $document);
 
         return Inertia::render('documents/Edit', [
@@ -240,7 +235,6 @@ class DocumentController extends Controller
         AssignDocumentReviewerRequest $request,
         Document $document,
     ): RedirectResponse {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('assignReviewer', $document);
         $document->loadMissing('assignee');
 
@@ -372,7 +366,6 @@ class DocumentController extends Controller
 
     public function update(UpdateDocumentRequest $request, Document $document): RedirectResponse
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('update', $document);
 
         $originalTitle = $document->title;
@@ -391,7 +384,6 @@ class DocumentController extends Controller
 
     public function destroy(Request $request, Document $document): RedirectResponse
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('delete', $document);
 
         /** @var User $user */
@@ -404,7 +396,6 @@ class DocumentController extends Controller
 
     public function download(Request $request, Document $document): RedirectResponse
     {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize('view', $document);
 
         $this->logDocumentAction($document, $request, 'downloaded');
@@ -426,20 +417,6 @@ class DocumentController extends Controller
                 'user_agent' => $request->userAgent(),
             ], $metadata),
         ]);
-    }
-
-    protected function ensureCurrentTenantMatter(Matter $matter): Matter
-    {
-        abort_unless($matter->tenant_id === tenant()?->id, 404);
-
-        return $matter;
-    }
-
-    protected function ensureCurrentTenantDocument(Document $document): Document
-    {
-        abort_unless($document->tenant_id === tenant()?->id, 404);
-
-        return $document;
     }
 
     protected function isRealtimeRefresh(Request $request): bool
@@ -572,7 +549,6 @@ class DocumentController extends Controller
         DocumentStatus $toStatus,
         string $ability,
     ): RedirectResponse {
-        $document = $this->ensureCurrentTenantDocument($document);
         $this->authorize($ability, $document);
 
         try {

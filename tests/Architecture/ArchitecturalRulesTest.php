@@ -41,3 +41,27 @@ arch('superadmin checks live in a reviewed allowlist')
         'App\Http\Controllers\Admin\QueueHealthController',
         'App\Broadcasting\BroadcastChannelAuthorizer',
     ]);
+
+test('controllers do not reintroduce ad-hoc tenant scoping helpers', function (): void {
+    $controllersPath = dirname(__DIR__, 2).'/app/Http/Controllers';
+
+    $controllerFiles = (new Symfony\Component\Finder\Finder)
+        ->in($controllersPath)
+        ->files()
+        ->name('*.php');
+
+    $offenders = [];
+
+    foreach ($controllerFiles as $controllerFile) {
+        if (preg_match('/ensureCurrentTenant\w*/', $controllerFile->getContents()) === 1) {
+            $offenders[] = $controllerFile->getRelativePathname();
+        }
+    }
+
+    expect($offenders)->toBeEmpty(
+        sprintf(
+            'Controllers must rely on the BelongsToTenant global scope; ad-hoc ensureCurrentTenant* helpers found in: %s',
+            implode(', ', $offenders),
+        ),
+    );
+});
